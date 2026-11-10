@@ -115,6 +115,31 @@ function escapeHtml(str) {
   }[c]));
 }
 
+/**
+ * Race a promise against a timeout, so a native plugin call that never
+ * resolves or rejects (observed: BleClient.initialize() hanging silently,
+ * leaving the Connect button stuck on "Connecting..." forever with no
+ * error and nothing logged) can't leave the UI stuck indefinitely. Most
+ * of this plugin's calls (connect, getServices, etc.) have their own
+ * documented internal timeouts (10s/5s per TimeoutOptions) - this is only
+ * needed for the few that don't, like initialize().
+ */
+function withTimeout(promise, ms, message) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms);
+    promise.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(timer);
+        reject(e);
+      }
+    );
+  });
+}
+
 function signalIndicator(rssi) {
   if (rssi === undefined || rssi === null) return '';
   if (rssi >= -60) return '📶📶📶';
@@ -296,7 +321,11 @@ export class BLENativeTransport {
     if (bleInitialized) return;
     console.log('[BLE native] Initializing BleClient (androidNeverForLocation: true)...');
     try {
-      await BleClient.initialize({ androidNeverForLocation: true });
+      await withTimeout(
+        BleClient.initialize({ androidNeverForLocation: true }),
+        15000,
+        'Bluetooth did not respond to initialize() within 15 seconds. Try force-closing and reopening the app, or check that Bluetooth is turned on.'
+      );
       bleInitialized = true;
       console.log('[BLE native] Initialized');
     } catch (e) {
@@ -310,6 +339,11 @@ export class BLENativeTransport {
    * @param {boolean} options.showAllDevices - If true, the device picker shows every Bluetooth device, not just recognized printer name prefixes
    */
   async connect({ showAllDevices = false } = {}) {
+    // Always log at least this one line immediately, synchronously, before
+    // anything that could hang - so the Debug log panel can never end up
+    // completely empty while the Connect button sits on "Connecting...".
+    console.log('[BLE native] connect() called, showAllDevices=', showAllDevices);
+
     await this._ensureInitialized();
     const BleClient = getBleClient();
 
@@ -319,7 +353,7 @@ export class BLENativeTransport {
     }
 
     try {
-      const enabled = await BleClient.isEnabled();
+      const enabled = await withTimeout(BleClient.isEnabled(), 8000, 'Checking whether Bluetooth is on timed out.');
       if (!enabled) {
         console.log('[BLE native] Bluetooth is off, requesting enable...');
         await BleClient.requestEnable();
@@ -335,21 +369,27 @@ export class BLENativeTransport {
     // Some Android devices refuse connect() if the OS thinks a stale GATT
     // connection is still open; disconnecting first is the documented fix.
     try {
-      await BleClient.disconnect(picked.deviceId);
+      await withTimeout(BleClient.disconnect(picked.deviceId), 5000, 'pre-connect disconnect() timed out');
     } catch (e) {
-      // Expected when the device wasn't actually connected - ignore.
+      // Expected when the device wasn't actually connected, or a timeout
+      // from our own safety wrapper - ignore either way, this is just a
+      // best-effort cleanup step.
     }
 
     try {
       console.log('[BLE native] Connecting GATT...');
-      await BleClient.connect(picked.deviceId, (deviceId) => {
-        console.log('[BLE native] Disconnected:', deviceId);
-        this.connected = false;
-        this._serviceUuid = null;
-        this._writeCharUuid = null;
-        this._notifyCharUuid = null;
-        if (this.onDisconnect) this.onDisconnect();
-      });
+      await withTimeout(
+        BleClient.connect(picked.deviceId, (deviceId) => {
+          console.log('[BLE native] Disconnected:', deviceId);
+          this.connected = false;
+          this._serviceUuid = null;
+          this._writeCharUuid = null;
+          this._notifyCharUuid = null;
+          if (this.onDisconnect) this.onDisconnect();
+        }),
+        20000,
+        'Connecting to the printer timed out after 20 seconds.'
+      );
     } catch (e) {
       throw handleBleError(e);
     }
@@ -358,7 +398,11 @@ export class BLENativeTransport {
     this.deviceName = picked.name || 'Unknown';
 
     console.log('[BLE native] Connected, reading discovered services...');
-    const services = await BleClient.getServices(picked.deviceId);
+    const services = await withTimeout(
+      BleClient.getServices(picked.deviceId),
+      10000,
+      'Reading services from the printer timed out after 10 seconds.'
+    );
     console.log('[BLE native] Services found:', services.map((s) => s.uuid).join(', ') || '(none)');
 
     const candidateServiceUuids = (BLE.ALT_SERVICE_UUIDS || [BLE.SERVICE_UUID]).map(toFullUUID);

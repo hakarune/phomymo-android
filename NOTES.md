@@ -281,6 +281,49 @@ This is a hard requirement of the Capacitor version resolved in Step 4
   test (Bluetooth re-enabled) specifically to prove the no-network claim
   end to end, not just via static analysis.
 
+## First real-device test findings (post-launch)
+
+The app was installed on a real phone and the first connect attempt to an
+M110 failed - this is the first real signal from actual hardware, not
+static analysis, and found two genuine bugs:
+
+1. **Native BLE `connect()` could hang indefinitely with zero log output.**
+   Screenshots showed the Connect button stuck on "Connecting..." while
+   the Debug log panel stayed completely empty - meaning some call inside
+   `connect()` never resolved or rejected. The most likely culprit:
+   `BleClient.initialize()` has no documented timeout at all (unlike
+   `connect()`/`getServices()`/etc., which default to 10s/5s per the
+   plugin's `TimeoutOptions`), so if the native side never responds, the
+   whole chain just hangs forever with nothing to show for it. Fixed by
+   adding a `withTimeout()` helper in `ble-native.js` and wrapping every
+   native call that didn't already have a clear bound: `initialize()`
+   (15s), `isEnabled()` (8s), the pre-connect `disconnect()` (5s),
+   `connect()` itself (20s, as defense-in-depth beyond the plugin's own
+   default), and `getServices()` (10s). Also added a `console.log` as the
+   very first line of `connect()`, before anything that could hang, so the
+   Debug log can never again be completely empty while a connect attempt
+   is in progress - at minimum we'll know the native path was actually
+   entered.
+2. **The Debug log panel itself was a UX trap.** At 40vh with tiny (11px)
+   buttons, once opened it dominates the screen and covers the label
+   canvas/Properties panel; the "Close" button was easy to miss. The user
+   reported being unable to do anything because of it. Fixed in
+   `debug-log.js`: capped height to `min(32vh, 260px)`, made the Close
+   button bigger/bolder/red and relabeled "✕ Close", made the whole header
+   bar (not just the small Close button) dismiss it, and added Escape-key
+   support.
+
+Root cause of the original hang is still not confirmed (could be a
+permission dialog that never appeared, a plugin-side bug, or something
+else) - these fixes bound the damage and guarantee real log output for
+next time, rather than claiming to have found the true cause. Next step:
+retry on the device with the rebuilt APK and check (a) whether a
+Bluetooth/permission system dialog appears when tapping Connect at all,
+(b) what error message (if any) now appears within ~20-45s, (c) the
+Debug log contents.
+
 ## Pending / to be continued
 
-- Step 6+ (CI build/signing, docs) not yet started as of this note.
+- Awaiting the retry above to know if the connect() timeout fix actually
+  surfaces the real underlying problem, or if further investigation is
+  needed once real log output exists.
