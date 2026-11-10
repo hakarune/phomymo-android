@@ -9,12 +9,24 @@
  *
  * Plain classic script (not a module) loaded early in index.html, so the
  * console patch is installed before app.js's first log call.
+ *
+ * Visibility is controlled entirely via this panel's own inline
+ * `style.display`, never via a CSS class. A previous version used the
+ * Tailwind `hidden` utility class, but also set `display:flex` directly in
+ * the same inline `style` attribute - an inline style always wins over a
+ * class-based rule of the same property (regardless of whether Tailwind's
+ * CDN runtime ever generated that rule), so toggling the class did
+ * nothing: the panel was permanently visible from first paint, and
+ * Close/Clear *looked* broken because their classList changes had zero
+ * visual effect (Copy "worked" only because it doesn't touch the class at
+ * all). Confirmed on a real device, not just suspected.
  */
 (function () {
   var MAX_LINES = 2000;
   var lines = [];
   var panelEl = null;
   var logEl = null;
+  var visible = false;
 
   function timestamp() {
     var d = new Date();
@@ -45,7 +57,7 @@
     if (lines.length > MAX_LINES) {
       lines.splice(0, lines.length - MAX_LINES);
     }
-    if (logEl && panelEl && !panelEl.classList.contains('hidden')) {
+    if (logEl && visible) {
       renderLog();
     }
   }
@@ -68,6 +80,12 @@
   function renderLog() {
     logEl.textContent = lines.join('\n');
     logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function setVisible(next) {
+    visible = next;
+    panelEl.style.display = visible ? 'flex' : 'none';
+    if (visible) renderLog();
   }
 
   async function copyLog() {
@@ -97,9 +115,6 @@
     var btn = document.createElement('button');
     btn.id = 'debug-log-toggle';
     btn.textContent = 'Debug log';
-    // Small, deliberately low-opacity by default so it doesn't look like a
-    // normal app button - but still a comfortable tap target (not just a
-    // tiny label), since this is the ONLY way in to see what went wrong.
     btn.setAttribute(
       'style',
       'position:fixed;left:8px;bottom:8px;z-index:9999;' +
@@ -110,15 +125,13 @@
 
     panelEl = document.createElement('div');
     panelEl.id = 'debug-log-panel';
-    panelEl.className = 'hidden';
-    // Capped at 32vh AND 260px (whichever is smaller) so it never eats most
-    // of the screen on a phone - it needs to stay readable without blocking
-    // the label canvas/toolbar underneath it.
+    // display is set exclusively by setVisible() below - never put a
+    // display value here, and never rely on a CSS class for this element.
     panelEl.setAttribute(
       'style',
       'position:fixed;left:0;right:0;bottom:0;z-index:9999;' +
-        'height:min(32vh, 260px);' +
-        'background:#111827;color:#d1d5db;display:flex;flex-direction:column;' +
+        'height:min(32vh, 260px);display:none;' +
+        'flex-direction:column;background:#111827;color:#d1d5db;' +
         'font-family:system-ui,sans-serif;box-shadow:0 -2px 10px rgba(0,0,0,0.3);'
     );
     panelEl.innerHTML =
@@ -135,23 +148,20 @@
     document.body.appendChild(panelEl);
     logEl = panelEl.querySelector('#debug-log-content');
 
-    function closePanel() {
-      panelEl.classList.add('hidden');
-    }
-
     btn.addEventListener('click', function () {
-      panelEl.classList.toggle('hidden');
-      if (!panelEl.classList.contains('hidden')) renderLog();
+      setVisible(!visible);
     });
 
-    panelEl.querySelector('[data-action="close"]').addEventListener('click', closePanel);
-    // Also close on Escape and on tapping/clicking the header bar itself
-    // (outside the three buttons), as a bigger, hard-to-miss close target.
+    panelEl.querySelector('[data-action="close"]').addEventListener('click', function () {
+      setVisible(false);
+    });
+    // Also close on tapping/clicking the header bar itself (outside the
+    // three buttons) and on Escape, as bigger/easier close targets.
     panelEl.firstElementChild.addEventListener('click', function (e) {
-      if (e.target === panelEl.firstElementChild || e.target.tagName === 'SPAN') closePanel();
+      if (e.target === panelEl.firstElementChild || e.target.tagName === 'SPAN') setVisible(false);
     });
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && !panelEl.classList.contains('hidden')) closePanel();
+      if (e.key === 'Escape' && visible) setVisible(false);
     });
     panelEl.querySelector('[data-action="clear"]').addEventListener('click', function () {
       lines = [];

@@ -304,26 +304,37 @@ static analysis, and found two genuine bugs:
    Debug log can never again be completely empty while a connect attempt
    is in progress - at minimum we'll know the native path was actually
    entered.
-2. **The Debug log panel itself was a UX trap.** At 40vh with tiny (11px)
-   buttons, once opened it dominates the screen and covers the label
-   canvas/Properties panel; the "Close" button was easy to miss. The user
-   reported being unable to do anything because of it. Fixed in
-   `debug-log.js`: capped height to `min(32vh, 260px)`, made the Close
-   button bigger/bolder/red and relabeled "✕ Close", made the whole header
-   bar (not just the small Close button) dismiss it, and added Escape-key
-   support.
+2. **The Debug log panel itself was a UX trap** - first attempt at a fix
+   (reducing height, bigger Close button) didn't actually fix it. On
+   retry, the user reported the panel was open immediately on launch, with
+   no way to close it (Close/Clear appeared to do nothing - only Copy
+   "worked"). **Root cause found and confirmed**: the panel's own inline
+   `style` attribute set `display:flex` directly, while visibility was
+   meant to be controlled by toggling a Tailwind `hidden` utility class
+   (`display:none`). An inline style always wins over a class-based rule
+   for the same property, regardless of whether Tailwind's CDN runtime
+   ever generated that rule - so toggling the class could never have any
+   visual effect, full stop. The panel was permanently visible from first
+   paint. Close/Clear "looked" broken because their `classList` changes
+   genuinely did nothing; Copy worked because it never touched the class
+   at all. Rewrote `debug-log.js` to control visibility exclusively via a
+   JS-owned `panelEl.style.display`, with the base inline style never
+   setting `display` and no class involved anywhere. This is a purely
+   mechanical CSS-specificity bug, not a Tailwind-timing issue as
+   originally guessed.
 
-Root cause of the original hang is still not confirmed (could be a
-permission dialog that never appeared, a plugin-side bug, or something
-else) - these fixes bound the damage and guarantee real log output for
-next time, rather than claiming to have found the true cause. Next step:
-retry on the device with the rebuilt APK and check (a) whether a
-Bluetooth/permission system dialog appears when tapping Connect at all,
-(b) what error message (if any) now appears within ~20-45s, (c) the
-Debug log contents.
+Retrying on the device after the first round of fixes, the user confirmed
+BLE connect to the M110 now works with no problem - so whatever caused the
+original indefinite hang (timeout-bounded but not root-caused in the first
+fix) is resolved in practice, whether that was the `withTimeout()` wrapper
+genuinely catching a real hang, a stale app/Bluetooth-stack state cleared
+by reinstalling, or both.
 
 ## Pending / to be continued
 
-- Awaiting the retry above to know if the connect() timeout fix actually
-  surfaces the real underlying problem, or if further investigation is
-  needed once real log output exists.
+- Awaiting confirmation that the debug-panel visibility fix actually
+  resolves it on the device (next real-device retry).
+- Printing itself (text/QR/barcode, the two label sizes, disconnect/
+  reconnect, cold-restart, airplane-mode test from TESTING.md) is still
+  unverified - connect succeeding is real progress but is only the first
+  checklist item.
