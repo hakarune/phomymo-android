@@ -249,6 +249,19 @@ where the real plugin's `InitializeOptions` actually expects it).
   `capacitor.plugins.json`/`config.xml` inside `android/`). No changes
   needed.
 
+## Documentation (Step 7)
+
+- `README.md`: privacy statement, supported-printers table (M110
+  built/tested; other upstream-supported models should work via the same
+  BLE transport but are unverified), Limitations (M110C unsupported - BLE
+  scan never sees a Classic/SPP device at all; USB/PM-241 unavailable -
+  WebView has no WebUSB), install instructions, and credits.
+- `TESTING.md`: the first-real-device checklist requested by the task
+  prompt - first connect, print text/QR/barcode, 40x30mm and 50x30mm
+  labels, disconnect/reconnect, cold-restart the app, and an airplane-mode
+  test (Bluetooth re-enabled) specifically to prove the no-network claim
+  end to end, not just via static analysis.
+
 ## Pending / to be continued
 
 - Step 6+ (CI build/signing, docs) not yet started as of this note.
