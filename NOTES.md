@@ -55,6 +55,15 @@ with local file bytes (never a URL), and jsPDF usage in `app.js` only calls
 would reach out to a CDN) — so neither library makes network calls in
 practice.
 
+**Dormant network paths to watch**: `pdf.min.mjs`/`pdf.worker.min.mjs`
+contain real `fetch()` calls used for URL-based PDF streaming and for
+loading CMap/standard-font-data by URL. These are unreachable today because
+the only `getDocument()` call passes `data` (local bytes) with no `url`,
+`cMapUrl`, or `standardFontDataUrl` option. If a future change adds CJK/non-Latin
+font support via `standardFontDataUrl` or streams a PDF by URL, that would
+reintroduce a network call — vendor the CMap/font data locally instead of
+pointing it at a CDN.
+
 ## Pending / to be continued
 
 - Step 4+ (Capacitor, BLE transport, CI) not yet started as of this note.
