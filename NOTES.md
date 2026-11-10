@@ -347,6 +347,47 @@ a future issue needs log capture again, `adb logcat` works fine for a
 sideloaded APK, or the panel can be restored from git history
 (`www/debug-log.js` as of commit `51c4aa1`).
 
+## App icon (replacing the Capacitor default)
+
+Replaced the generic Capacitor-generated launcher icon (teal grid background
++ a generic circular glyph) with a custom "label strip" mark - a warm paper
+strip with printed text rows, on a dark ink-teal background. Picked after
+sketching six concept directions for the user to choose from (tag, print-
+in-progress strip, label roll, tag+signal, thermal stamp, barcode strip);
+they picked the print-in-progress strip and left the colors to me:
+background `#16211D` (deep ink-teal, distinct from generic Material teal),
+foreground strip `#F3EFE4` (warm paper), printed rows cut out in the
+background color for guaranteed contrast at small sizes. Content sized to
+stay inside the ~66dp adaptive-icon safe-zone circle (verified by checking
+corner distance from center, and by rendering a masked preview) so it
+isn't clipped by circular/squircle launcher masks.
+
+Implementation: `drawable-v24/ic_launcher_foreground.xml` (new vector,
+two paths: the cream strip, then the ink row cutouts on top) and
+`values/ic_launcher_background.xml`'s color changed to the ink tone.
+`mipmap-anydpi-v26/ic_launcher.xml`/`ic_launcher_round.xml` were pointed at
+`@drawable/ic_launcher_foreground` instead of `@mipmap/ic_launcher_foreground`
+(the Capacitor template had them referencing a mipmap PNG per density,
+even though a `drawable-v24` vector already existed unused) - this means
+API 26+ now renders the icon from one scalable vector instead of five
+separate PNGs, and the old `drawable/ic_launcher_background.xml` (an
+unused teal grid-pattern vector - confirmed via grep that nothing
+referenced it; the adaptive-icon XML used `@color/ic_launcher_background`
+directly) and the five now-dead `mipmap-*/ic_launcher_foreground.png`
+files were deleted.
+
+For pre-API-26 devices (minSdk 24, so Android 7.0/7.1 - negligible real
+install base today but still the declared minimum), regenerated flattened
+`mipmap-{mdpi,hdpi,xhdpi,xxhdpi,xxxhdpi}/ic_launcher.png` (square) and
+`ic_launcher_round.png` (circle-clipped) at 48/72/96/144/192px from the
+same source art via `rsvg-convert`, rather than leaving Capacitor's
+generic default in place for that fallback path.
+
+No asset-generation tool (`@capacitor/assets` or similar) is installed in
+this project - confirmed nothing in `package.json`/`capacitor.config.json`
+references one - so `npx cap sync android` won't regenerate or overwrite
+these hand-authored files.
+
 ## Pending / to be continued
 
 - Printing itself (text/QR/barcode, the two label sizes, disconnect/
