@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Android / Gradle build outputs
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/capacitor-cordova-android-plugins/
+android/app/src/main/assets/public/
+
+# Keystores and secrets
+*.keystore
+*.jks
+.env
+.env.*
+
+# Claude Code local settings/session data - never commit
+.claude/
+
+# OS cruft
+.DS_Store
+Thumbs.db
