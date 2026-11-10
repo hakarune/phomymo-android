@@ -249,6 +249,19 @@ where the real plugin's `InitializeOptions` actually expects it).
   `capacitor.plugins.json`/`config.xml` inside `android/`). No changes
   needed.
 
+## Deviation: CI needs Java 21, not Java 17 (found during first real CI run, Step 8)
+
+The task prompt specified Temurin 17 for the build workflow. The very
+first CI run (triggered by pushing to GitHub in Step 8) failed with
+`error: invalid source release: 21` compiling `:capacitor-android`.
+`node_modules/@capacitor/android/capacitor/build.gradle` sets
+`sourceCompatibility`/`targetCompatibility` to `JavaVersion.VERSION_21` -
+Capacitor 8.6.0's own Android library requires a JDK that can compile for
+Java 21, which JDK 17 cannot do. Changed
+`.github/workflows/build-apk.yml`'s `setup-java` step to Temurin 21.
+This is a hard requirement of the Capacitor version resolved in Step 4
+(latest at the time, 8.6.0), not a mistake specific to this project.
+
 ## Documentation (Step 7)
 
 - `README.md`: privacy statement, supported-printers table (built

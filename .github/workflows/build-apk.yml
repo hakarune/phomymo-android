@@ -41,11 +41,11 @@ jobs:
           echo "node: $(node --version)"
           echo "npm: $(npm --version)"
 
-      - name: Setup Java (Temurin 17)
+      - name: Setup Java (Temurin 21)
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
 
       - name: Show Java version
         run: java -version
