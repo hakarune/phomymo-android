@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Phomymo Android (unofficial)</string>
+    <string name="title_activity_main">Phomymo Android (unofficial)</string>
+    <string name="package_name">io.github.hakarune.phomymo</string>
+    <string name="custom_url_scheme">io.github.hakarune.phomymo</string>
+</resources>

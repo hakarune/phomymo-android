@@ -55,15 +55,44 @@ with local file bytes (never a URL), and jsPDF usage in `app.js` only calls
 would reach out to a CDN) — so neither library makes network calls in
 practice.
 
-**Dormant network paths to watch**: `pdf.min.mjs`/`pdf.worker.min.mjs`
-contain real `fetch()` calls used for URL-based PDF streaming and for
-loading CMap/standard-font-data by URL. These are unreachable today because
-the only `getDocument()` call passes `data` (local bytes) with no `url`,
-`cMapUrl`, or `standardFontDataUrl` option. If a future change adds CJK/non-Latin
-font support via `standardFontDataUrl` or streams a PDF by URL, that would
-reintroduce a network call — vendor the CMap/font data locally instead of
-pointing it at a CDN.
+## Environment: shared storage has no symlink support (Step 4)
+
+`/storage/emulated/0/Programs/Github` (this project's location, per the
+task) is a FUSE filesystem (confirmed via `stat -f`: `Type: fuse`). FUSE on
+this device does not support symlinks (`ln -s` here fails with
+`Permission denied`). `npm install` relies on symlinks for
+`node_modules/.bin/*`, so installing `@capacitor/cli` directly in this
+directory failed with `EACCES ... symlink`.
+
+**Workaround**: all `npm install` / `npx cap ...` commands were run in a
+scratch mirror on Termux's native filesystem
+(`/data/data/com.termux/files/home/build-mirrors/phomymo-android`, which
+does support symlinks), then the generated/edited source files (`android/`
+minus build outputs, `capacitor.config.json`, `package.json`,
+`package-lock.json`) were `rsync`'d back into the real project directory.
+`node_modules/` itself is never synced back (it's gitignored and CI
+reinstalls it fresh via `npm ci` on a normal Linux filesystem, which has no
+symlink problem). This mirror is scratch-only and not part of the repo;
+if continuing this project locally in future, re-run `npm install` in the
+mirror before using `npx cap` commands rather than running them directly
+in the git-tracked folder.
+
+Capacitor's `npx cap add android` itself worked fine (no symlink step
+needed): installed `@capacitor/core`, `@capacitor/android`, `@capacitor/cli`
+(dev), `@capacitor-community/bluetooth-le`, all at their latest versions
+compatible together (Capacitor 8.6.0, bluetooth-le 8.3.0 which requires
+`@capacitor/core >=8.0.0`). minSdk/targetSdk/compileSdk were left at the
+Capacitor-8 defaults (24/36/36). `allowBackup` set to `false`. `INTERNET`
+permission removed from the manifest (commented explanation left in place);
+this is unverified on a real device — see the comment in
+`android/app/src/main/AndroidManifest.xml` and restore it first if the app
+shows a blank screen on first launch. `BLUETOOTH_SCAN` is declared with
+`usesPermissionFlags="neverForLocation"` (overriding the plugin's own
+manifest entry via `tools:node="replace"`) since the app only connects to
+named printers and never derives physical location from scan results; the
+corresponding `androidNeverForLocation: true` option still needs to be
+passed when calling the plugin's scan API in Step 5.
 
 ## Pending / to be continued
 
-- Step 4+ (Capacitor, BLE transport, CI) not yet started as of this note.
+- Step 5+ (BLE transport port, CI, docs) not yet started as of this note.

@@ -1,0 +1,12 @@
+{
+  "appId": "io.github.hakarune.phomymo",
+  "appName": "Phomymo Android (unofficial)",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": false
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}
