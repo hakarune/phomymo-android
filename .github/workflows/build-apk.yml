@@ -12,6 +12,11 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # GitHub's docs say secrets cannot be referenced directly in `if:`
+    # conditionals - the documented pattern is to mirror the secret into a
+    # job-level env var first, then branch on that instead.
+    env:
+      HAS_KEYSTORE: ${{ secrets.KEYSTORE_BASE64 != '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -58,7 +63,7 @@ jobs:
           echo "cap sync complete."
 
       - name: Decode release keystore (only if signing secrets are configured)
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        if: ${{ env.HAS_KEYSTORE == 'true' }}
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
@@ -68,7 +73,7 @@ jobs:
           echo "Keystore written to $KEYSTORE_OUT ($(wc -c < "$KEYSTORE_OUT") bytes)"
 
       - name: Build signed release APK
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        if: ${{ env.HAS_KEYSTORE == 'true' }}
         working-directory: android
         env:
           KEYSTORE_PATH: ${{ github.workspace }}/android/app/release.keystore
@@ -83,7 +88,7 @@ jobs:
           find app/build/outputs/apk/release -name '*.apk' -exec ls -la {} \;
 
       - name: Build debug APK (no release signing secrets configured)
-        if: ${{ secrets.KEYSTORE_BASE64 == '' }}
+        if: ${{ env.HAS_KEYSTORE != 'true' }}
         working-directory: android
         run: |
           echo "No KEYSTORE_BASE64 secret configured - building a debug-signed APK instead of a release APK."

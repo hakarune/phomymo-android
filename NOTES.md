@@ -198,8 +198,14 @@ where the real plugin's `InitializeOptions` actually expects it).
   Termux environment, not CI). Steps: checkout, setup-node (LTS),
   setup-java (Temurin 17), `npm ci`, `npx cap sync android`, then either a
   signed `assembleRelease` or an unsigned-path `assembleDebug`, chosen by
-  whether the `KEYSTORE_BASE64` secret is set (`if: secrets.KEYSTORE_BASE64
-  != ''`). Uploads whichever APK was produced as a workflow artifact; on
+  whether the `KEYSTORE_BASE64` secret is set. The choice is driven by a
+  job-level `env.HAS_KEYSTORE` (set from `secrets.KEYSTORE_BASE64 != ''`),
+  not by referencing `secrets.*` directly inside each step's `if:` -
+  GitHub's docs say secrets can't be used directly in `if:` conditionals,
+  so the secret is mirrored into an env var once and steps branch on that
+  instead (caught by the Step 6 audit - the first version of this workflow
+  used `if: secrets.KEYSTORE_BASE64 != ''` directly, which is unsupported).
+  Uploads whichever APK was produced as a workflow artifact; on
   `v*` tags, also creates/updates a GitHub Release and attaches it via
   `gh release create`/`gh release upload` (the GitHub CLI, already on the
   runner, authenticated with the automatic `GITHUB_TOKEN` - avoided adding
