@@ -90,8 +90,9 @@ shows a blank screen on first launch. `BLUETOOTH_SCAN` is declared with
 `usesPermissionFlags="neverForLocation"` (overriding the plugin's own
 manifest entry via `tools:node="replace"`) since the app only connects to
 named printers and never derives physical location from scan results; the
-corresponding `androidNeverForLocation: true` option still needs to be
-passed when calling the plugin's scan API in Step 5.
+corresponding `androidNeverForLocation: true` option is passed in Step 5's
+`ble-native.js`, at `BleClient.initialize()` time (not per-scan-call - that's
+where the real plugin's `InitializeOptions` actually expects it).
 
 ## Native BLE transport (Step 5)
 
@@ -174,6 +175,14 @@ passed when calling the plugin's scan API in Step 5.
   `window.onerror`/`unhandledrejection` into a 2000-line ring buffer, shown
   via a small always-present "Debug log" button (bottom-left) with Copy/
   Clear/Close. Present in both the native app and the browser fallback.
+- **Another dormant network path, like pdf.js's (Step 3)**: the vendored
+  `vendor/js/capacitor-core.js` bundles a `CapacitorHttp` web-plugin whose
+  `request()` method calls `fetch()`. Nothing in this app calls
+  `Capacitor.Plugins.CapacitorHttp.*`, so it's unreachable today - but if a
+  future change ever does (e.g. a "check for updates" feature), that would
+  reintroduce a real network call. Vendoring a smaller, hand-picked subset
+  of `@capacitor/core` instead of its full bundle was considered but judged
+  not worth the added maintenance risk for ~8KB of unreachable code.
 - All of the above is static-analysis/code-review verified only - **nothing
   in Step 5 has been exercised on a real device or even in a real browser
   yet.** The custom scan/picker UI, the service/characteristic UUID

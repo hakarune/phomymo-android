@@ -100,6 +100,21 @@ function showPermissionDeniedDialog() {
   });
 }
 
+/**
+ * Advertised BLE device names are attacker-controlled input (any nearby
+ * device can broadcast an arbitrary name) and get rendered via innerHTML
+ * in the device picker below - escape before interpolating.
+ */
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[c]));
+}
+
 function signalIndicator(rssi) {
   if (rssi === undefined || rssi === null) return '';
   if (rssi >= -60) return '📶📶📶';
@@ -162,8 +177,8 @@ function pickDeviceViaScan({ showAllDevices = false } = {}) {
       listEl.innerHTML = entries
         .map(
           (e) => `
-        <button data-device-id="${e.deviceId}" class="w-full text-left px-5 py-3 hover:bg-gray-50 flex items-center justify-between">
-          <span class="text-sm text-gray-900">${e.name || 'Unknown device'}</span>
+        <button data-device-id="${escapeHtml(e.deviceId)}" class="w-full text-left px-5 py-3 hover:bg-gray-50 flex items-center justify-between">
+          <span class="text-sm text-gray-900">${escapeHtml(e.name || 'Unknown device')}</span>
           <span class="text-xs text-gray-400">${signalIndicator(e.rssi)}</span>
         </button>
       `
