@@ -11,7 +11,9 @@
 import { BLE } from './constants.js';
 
 // Printer query commands (format: [0x1F, 0x11, X])
-const QUERY_COMMANDS = {
+// Exported so the native (Capacitor plugin) transport can reuse the same
+// query command table instead of duplicating it.
+export const QUERY_COMMANDS = {
   battery: [0x1F, 0x11, 0x08],
   firmware: [0x1F, 0x11, 0x07],
   serial: [0x1F, 0x11, 0x09],
@@ -22,6 +24,149 @@ const QUERY_COMMANDS = {
   power: [0x1F, 0x11, 0x0E],
   label: [0x1F, 0x11, 0x19],
 };
+
+/**
+ * Convert data bytes to dot-separated string (for firmware/version)
+ */
+function data2dots(data, start) {
+  let str = '';
+  for (let i = start; i < data.length; i++) {
+    str += data[i];
+    if (i < data.length - 1) str += '.';
+  }
+  return str;
+}
+
+/**
+ * Convert data bytes to ASCII string
+ */
+function data2string(data, start) {
+  let str = '';
+  for (let i = start; i < data.length; i++) {
+    str += String.fromCharCode(data[i]);
+  }
+  return str;
+}
+
+/**
+ * Parse a raw BLE notification frame from the printer into a plain object.
+ * Pure function (no `this`) so both the Web Bluetooth transport (this file)
+ * and the native Capacitor BLE transport (ble-native.js) can share one
+ * parser instead of keeping two copies of the protocol in sync.
+ *
+ * Response format: 0x1A, type, data... (plus two special 2/3-byte frames)
+ *
+ * @returns {null | {kind: 'result'|'printerType'|'unknown', value?, type?} | {kind: 'field', field: string, value, stored: boolean}}
+ */
+export function parseNotificationFrame(data) {
+  if (data.length < 2) return null;
+
+  // Handle special result/printer type responses (2-3 bytes)
+  if (data.length === 2 && data[0] === 0x01) {
+    return { kind: 'result', value: data[1] };
+  }
+  if (data.length === 3 && data[0] === 0x02) {
+    return { kind: 'printerType', value: data[1] };
+  }
+
+  // Standard response format: 0x1A, type, data...
+  if (data[0] !== 0x1A) return null;
+  if (data.length < 3) return null; // Need at least 3 bytes for type + value
+
+  const type = data[1];
+  let value = null;
+  let field = null;
+  let stored = false;
+
+  switch (type) {
+    case 0x03: // Hot/heating status
+      if (data[2] === 0xA9) value = -1;
+      else if (data[2] === 0xA8) value = 0;
+      else value = 1;
+      field = 'hot';
+      break;
+
+    case 0x04: // Battery
+      if (data[2] === 0xA4) value = 0;
+      else if (data[2] === 0xA3) value = 3;
+      else if (data[2] === 0xA2) value = 5;
+      else if (data[2] === 0xA1) value = 10;
+      else value = data[2];
+      field = 'battery';
+      stored = true;
+      break;
+
+    case 0x05: // Cover
+      value = data[2] === 0x98 ? 'open' : (data[2] === 0x99 ? 'closed' : 'unknown');
+      field = 'cover';
+      stored = true;
+      break;
+
+    case 0x06: // Paper
+      value = data[2] === 0x88 ? 'out' : 'ok';
+      field = 'paper';
+      stored = true;
+      break;
+
+    case 0x07: // Firmware
+      value = data2dots(data, 2);
+      field = 'firmware';
+      stored = true;
+      break;
+
+    case 0x08: // Serial
+      value = data2string(data, 2);
+      field = 'serial';
+      stored = true;
+      break;
+
+    case 0x09: // Power
+      value = data[2];
+      field = 'power';
+      stored = true;
+      break;
+
+    case 0x0B: // Print status
+      value = data[2] === 0xB8 ? -1 : data[2];
+      field = 'print';
+      break;
+
+    case 0x0C: // Label
+      if (data[2] === 0x0B) value = 0;
+      else if (data[2] === 0x26) value = 3;
+      else value = 2;
+      field = 'label';
+      stored = true;
+      break;
+
+    case 0x0D: // MAC
+      value = data2string(data, 2);
+      field = 'mac';
+      stored = true;
+      break;
+
+    case 0x0F: // Print status alt
+      value = data[2] === 0x0C ? 1 : data[2];
+      field = 'print';
+      break;
+
+    case 0x11: // Version
+      value = data2dots(data, 2);
+      field = 'version';
+      stored = true;
+      break;
+
+    case 0x17: // Chip
+      value = data[2];
+      field = 'chip';
+      break;
+
+    default:
+      return { kind: 'unknown', type };
+  }
+
+  return { kind: 'field', field, value, stored };
+}
 
 // Singleton instance
 let sharedInstance = null;
@@ -492,143 +637,32 @@ export class BLETransport {
     const data = new Uint8Array(event.target.value.buffer);
     console.log('[BLE <<<]', Array.from(data).map(b => b.toString(16).padStart(2, '0')).join(' '));
 
-    if (data.length < 2) return;
+    const parsed = parseNotificationFrame(data);
+    if (!parsed) return;
 
-    // Handle special result/printer type responses (2-3 bytes)
-    if (data.length === 2 && data[0] === 0x01) {
-      console.log('Result:', data[1]);
+    if (parsed.kind === 'result') {
+      console.log('Result:', parsed.value);
       return;
     }
-    if (data.length === 3 && data[0] === 0x02) {
-      console.log('Printer type:', data[1]);
+    if (parsed.kind === 'printerType') {
+      console.log('Printer type:', parsed.value);
+      return;
+    }
+    if (parsed.kind === 'unknown') {
+      console.log('Unknown response type:', parsed.type.toString(16));
       return;
     }
 
-    // Standard response format: 0x1A, type, data...
-    if (data[0] !== 0x1A) return;
-    if (data.length < 3) return; // Need at least 3 bytes for type + value
-
-    const type = data[1];
-    let value = null;
-    let field = null;
-
-    switch (type) {
-      case 0x03: // Hot/heating status
-        if (data[2] === 0xA9) value = -1;
-        else if (data[2] === 0xA8) value = 0;
-        else value = 1;
-        field = 'hot';
-        break;
-
-      case 0x04: // Battery
-        if (data[2] === 0xA4) value = 0;
-        else if (data[2] === 0xA3) value = 3;
-        else if (data[2] === 0xA2) value = 5;
-        else if (data[2] === 0xA1) value = 10;
-        else value = data[2];
-        field = 'battery';
-        this.printerInfo.battery = value;
-        break;
-
-      case 0x05: // Cover
-        value = data[2] === 0x98 ? 'open' : (data[2] === 0x99 ? 'closed' : 'unknown');
-        field = 'cover';
-        this.printerInfo.cover = value;
-        break;
-
-      case 0x06: // Paper
-        value = data[2] === 0x88 ? 'out' : 'ok';
-        field = 'paper';
-        this.printerInfo.paper = value;
-        break;
-
-      case 0x07: // Firmware
-        value = this.data2dots(data, 2);
-        field = 'firmware';
-        this.printerInfo.firmware = value;
-        break;
-
-      case 0x08: // Serial
-        value = this.data2string(data, 2);
-        field = 'serial';
-        this.printerInfo.serial = value;
-        break;
-
-      case 0x09: // Power
-        value = data[2];
-        field = 'power';
-        this.printerInfo.power = value;
-        break;
-
-      case 0x0B: // Print status
-        value = data[2] === 0xB8 ? -1 : data[2];
-        field = 'print';
-        break;
-
-      case 0x0C: // Label
-        if (data[2] === 0x0B) value = 0;
-        else if (data[2] === 0x26) value = 3;
-        else value = 2;
-        field = 'label';
-        this.printerInfo.label = value;
-        break;
-
-      case 0x0D: // MAC
-        value = this.data2string(data, 2);
-        field = 'mac';
-        this.printerInfo.mac = value;
-        break;
-
-      case 0x0F: // Print status alt
-        value = data[2] === 0x0C ? 1 : data[2];
-        field = 'print';
-        break;
-
-      case 0x11: // Version
-        value = this.data2dots(data, 2);
-        field = 'version';
-        this.printerInfo.version = value;
-        break;
-
-      case 0x17: // Chip
-        value = data[2];
-        field = 'chip';
-        break;
-
-      default:
-        console.log('Unknown response type:', type.toString(16));
-        return;
+    const { field, value, stored } = parsed;
+    if (stored) {
+      this.printerInfo[field] = value;
     }
-
     console.log(`Printer ${field}:`, value);
 
     // Notify callback if set
     if (this.onPrinterInfo) {
       this.onPrinterInfo(field, value, this.printerInfo);
     }
-  }
-
-  /**
-   * Convert data bytes to dot-separated string (for firmware/version)
-   */
-  data2dots(data, start) {
-    let str = '';
-    for (let i = start; i < data.length; i++) {
-      str += data[i];
-      if (i < data.length - 1) str += '.';
-    }
-    return str;
-  }
-
-  /**
-   * Convert data bytes to ASCII string
-   */
-  data2string(data, start) {
-    let str = '';
-    for (let i = start; i < data.length; i++) {
-      str += String.fromCharCode(data[i]);
-    }
-    return str;
   }
 
   /**

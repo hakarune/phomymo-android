@@ -7,6 +7,15 @@
 import { CanvasRenderer } from './canvas.js?v=115';
 import { BLETransport } from './ble.js?v=103';
 import { USBTransport } from './usb.js?v=101';
+import { BLENativeTransport } from './ble-native.js';
+
+// True only inside the packaged Android app (Capacitor native runtime
+// present), never in a plain browser - used to pick the native BLE
+// transport instead of Web Bluetooth, and to relax browser-only
+// compatibility checks that don't apply inside the app.
+function isNativeApp() {
+  return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+}
 import { print, printDensityTest, isDSeriesPrinter, isP12Printer, isA30Printer, isTapePrinter, isPM241Printer, isTSPLPrinter, isRotatedPrinter, getPrinterWidthBytes, getPrinterDpi, getPrinterAlignment, getPrinterDescription, isDeviceRecognized, getMatchedPattern, loadPrinterDefinitions, getAllPrinterDefinitions, getPrinterDefinition, getCustomPrinterDefinitions, saveCustomPrinterDefinition, deleteCustomPrinterDefinition, isBuiltinPrinter, resetBuiltinPrinter, getAvailableProtocols, getAvailableLabelPresets, getDetectedDefinition } from './printer.js?v=128';
 import {
   createTextElement,
@@ -4645,10 +4654,17 @@ async function handleConnect(event) {
     const isBLE = state.connectionType === 'ble';
 
     if (isBLE) {
-      if (!BLETransport.isAvailable()) {
-        throw new Error('Bluetooth is not supported');
+      if (isNativeApp()) {
+        if (!BLENativeTransport.isAvailable()) {
+          throw new Error('Bluetooth plugin is not available');
+        }
+        state.transport = BLENativeTransport.getShared();
+      } else {
+        if (!BLETransport.isAvailable()) {
+          throw new Error('Bluetooth is not supported');
+        }
+        state.transport = BLETransport.getShared();
       }
-      state.transport = BLETransport.getShared();
     } else {
       if (!USBTransport.isAvailable()) {
         throw new Error('USB is not supported');
@@ -5625,19 +5641,26 @@ function hideShortcutsModal() {
 function checkCompatibility() {
   const warnings = [];
   let canPrint = true;
+  const nativeApp = isNativeApp();
 
-  if (!window.isSecureContext) {
-    warnings.push('HTTPS required for printing - this app must be served over a secure connection');
-    canPrint = false;
-  }
+  // Inside the packaged Android app there is no Web Bluetooth/WebUSB and no
+  // "secure context" in the browser sense, but printing still works via the
+  // native BLE transport (ble-native.js) - none of the browser-only checks
+  // below apply there.
+  if (!nativeApp) {
+    if (!window.isSecureContext) {
+      warnings.push('HTTPS required for printing - this app must be served over a secure connection');
+      canPrint = false;
+    }
 
-  if (!('bluetooth' in navigator)) {
-    warnings.push('Web Bluetooth not supported - printing requires Chrome, Edge, or Opera');
-    canPrint = false;
-  }
+    if (!('bluetooth' in navigator)) {
+      warnings.push('Web Bluetooth not supported - printing requires Chrome, Edge, or Opera');
+      canPrint = false;
+    }
 
-  if (!('usb' in navigator)) {
-    console.warn('WebUSB not supported - USB printing will not be available');
+    if (!('usb' in navigator)) {
+      console.warn('WebUSB not supported - USB printing will not be available');
+    }
   }
 
   // Store print capability in state for disabling print buttons
@@ -7123,6 +7146,16 @@ function init() {
   if (!('usb' in navigator)) {
     const usbOption = connType.querySelector('option[value="usb"]');
     if (usbOption) usbOption.remove();
+    const mobileUsbOption = $('#mobile-conn-type')?.querySelector('option[value="usb"]');
+    if (mobileUsbOption) mobileUsbOption.remove();
+    if (isNativeApp()) {
+      // WebUSB (used only for PM-241 printers) doesn't exist in an Android
+      // WebView, so the USB option above is removed automatically - this is
+      // just a clearer explanation than upstream's generic browser-support
+      // log line, visible in the Debug log panel if someone asks "where did
+      // USB go?".
+      console.log('[Native] PM-241 (USB) printers are not supported in this Android app - WebUSB is not available in a WebView. Use a desktop/Android Chrome browser for PM-241.');
+    }
   }
   connType.addEventListener('change', (e) => {
     state.connectionType = e.target.value;

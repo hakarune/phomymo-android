@@ -2136,6 +2136,15 @@
   <script src="vendor/js/JsBarcode.all.min.js"></script>
   <script src="vendor/js/qrcode.min.js"></script>
   <script src="vendor/js/jspdf.umd.min.js"></script>
+  <!-- Capacitor core + BLE plugin, as classic (non-module) scripts so they
+       work without a bundler: these set window.Capacitor/window.capacitorExports
+       and window.capacitorCommunityBluetoothLe respectively. Harmless when not
+       running inside the native app (window.Capacitor.isNativePlatform() is
+       false in a plain browser, so ble-native.js's isAvailable() stays false
+       and ble.js's Web Bluetooth transport is used instead). See ble-native.js. -->
+  <script src="vendor/js/capacitor-core.js"></script>
+  <script src="vendor/js/capacitor-bluetooth-le.js"></script>
+  <script src="debug-log.js"></script>
   <script type="module">
     import * as pdfjsModule from './vendor/js/pdf.min.mjs';
     pdfjsModule.GlobalWorkerOptions.workerSrc = 'vendor/js/pdf.worker.min.mjs';
