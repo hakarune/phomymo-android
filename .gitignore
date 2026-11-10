@@ -21,3 +21,7 @@ android/app/src/main/assets/public/
 # OS cruft
 .DS_Store
 Thumbs.db
+
+# Local design asset scratch work - not part of the app, never commit
+/test-label-borders-eps/
+/test-label-borders-png/
