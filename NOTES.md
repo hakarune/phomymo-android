@@ -251,11 +251,17 @@ where the real plugin's `InitializeOptions` actually expects it).
 
 ## Documentation (Step 7)
 
-- `README.md`: privacy statement, supported-printers table (M110
-  built/tested; other upstream-supported models should work via the same
-  BLE transport but are unverified), Limitations (M110C unsupported - BLE
-  scan never sees a Classic/SPP device at all; USB/PM-241 unavailable -
-  WebView has no WebUSB), install instructions, and credits.
+- `README.md`: privacy statement, supported-printers table (built
+  specifically for the M110, but **not yet verified on real hardware** -
+  other upstream-supported models should work via the same BLE transport
+  but are even less verified), Limitations (M110C unsupported - BLE scan
+  never sees a Classic/SPP device at all; USB/PM-241 unavailable - WebView
+  has no WebUSB), install instructions, and credits. The first draft of
+  this section said the app had been "built and tested for the M110,"
+  which the Step 7 audit correctly called out as a false claim contradicting
+  this file's own "nothing has been exercised on a real device" notes
+  elsewhere - fixed to say "built for" without implying real-hardware
+  testing happened.
 - `TESTING.md`: the first-real-device checklist requested by the task
   prompt - first connect, print text/QR/barcode, 40x30mm and 50x30mm
   labels, disconnect/reconnect, cold-restart the app, and an airplane-mode

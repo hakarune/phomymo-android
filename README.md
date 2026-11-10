@@ -20,7 +20,10 @@ This app is fully offline and tracker-free:
 - No network access at all — every library it uses (fonts, barcode/QR/PDF
   generation, the Capacitor runtime) is bundled inside the app, not loaded
   from the internet. The `INTERNET` permission has been removed from the
-  Android manifest.
+  Android manifest (unverified on real hardware as of this writing — if
+  the app shows a blank screen on first launch instead of the label
+  designer, that permission removal is the first thing to try reverting;
+  see NOTES.md).
 - Your label designs and settings stay in the app's local storage on your
   phone. Nothing is ever uploaded anywhere.
 - The only network-ish thing the app does is Bluetooth LE communication
@@ -32,11 +35,13 @@ these claims.
 ## Supported printers
 
 This app talks Bluetooth LE using the same protocol as upstream Phomymo.
-In practice, it has been **built and tested for the Phomemo M110** — other
-models in upstream's supported list (P12, A30, M02 family, M03, T02, M04S,
-M110S, M120, M200/M220/M221/M250/M260, D-series, Q30/Q30S) should work too
-since they share the same BLE transport, but have not been specifically
-verified with this Android build.
+It was **built specifically for the Phomemo M110** — that's the printer
+this project targets — but as of this writing it has **not yet been
+verified on real hardware** (see [TESTING.md](TESTING.md) for the
+checklist that still needs to be run). Other models in upstream's
+supported list (P12, A30, M02 family, M03, T02, M04S, M110S, M120,
+M200/M220/M221/M250/M260, D-series, Q30/Q30S) should work too since they
+share the same BLE transport, but are even less verified than the M110.
 
 ## Limitations
 
