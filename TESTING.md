@@ -1,12 +1,16 @@
 # Testing checklist (first real-device test)
 
-Nothing in this app has been run on a real phone or a real printer yet —
-everything so far is code review and static analysis (see NOTES.md). This
-checklist is for whoever installs the APK on their phone with a Phomemo
-M110, to find out what actually works.
+BLE connect to a Phomemo M110 has been confirmed working on a real device
+(see NOTES.md). The rest of this checklist (printing, label sizes,
+reconnect behavior, the offline check) is still unverified. This is for
+whoever installs the APK, to work through what's left.
 
-If anything fails: open the **Debug log** button (bottom-left corner of
-the app), tap **Copy**, and paste it back along with which step failed.
+An earlier build had an in-app "Debug log" panel for copying logs when
+something failed; it's been removed (it got in the way once things were
+working, and real-device testing is going well enough without it). If
+something does fail, describe what happened and, if possible, connect the
+phone to a computer and check `adb logcat` for `[BLE native]`/`console`
+output, or take a screenshot.
 
 ## Before you start
 
@@ -71,7 +75,7 @@ Whatever happens — success or failure — the most useful things to send
 back are:
 
 1. Which checklist items passed/failed.
-2. The **Debug log** contents (Copy button) if anything failed, especially
-   around connecting or the first print.
+2. A description or screenshot of whatever went wrong, especially around
+   connecting or the first print.
 3. The exact printer model name shown when connecting (in case it's an
    M110 variant with a different advertised name than expected).

@@ -330,11 +330,27 @@ fix) is resolved in practice, whether that was the `withTimeout()` wrapper
 genuinely catching a real hang, a stale app/Bluetooth-stack state cleared
 by reinstalling, or both.
 
+## Debug log panel removed (user request, after confirming it works)
+
+The visibility fix above worked - the panel no longer opened itself. But
+with BLE connect and printing both confirmed working on a real M110, the
+user asked for the panel to be removed entirely: it was no longer needed,
+and its floating toggle button (fixed bottom-left) was physically
+obstructing the mobile toolbar's "Text" button. Deleted `www/debug-log.js`
+and its `<script>` tag in `index.html`; updated stale comments in
+`app.js`/`ble-native.js` and the "Debug log" instructions in `TESTING.md`
+that referenced it. This overrides the original task prompt's Step 5
+instruction to add an in-app log panel - reasonable given it served its
+purpose (diagnosing the connect-hang bug) and the explicit, informed
+request to remove it now that real-device testing no longer needs it. If
+a future issue needs log capture again, `adb logcat` works fine for a
+sideloaded APK, or the panel can be restored from git history
+(`www/debug-log.js` as of commit `51c4aa1`).
+
 ## Pending / to be continued
 
-- Awaiting confirmation that the debug-panel visibility fix actually
-  resolves it on the device (next real-device retry).
 - Printing itself (text/QR/barcode, the two label sizes, disconnect/
   reconnect, cold-restart, airplane-mode test from TESTING.md) is still
-  unverified - connect succeeding is real progress but is only the first
-  checklist item.
+  unverified beyond the user's manual confirmation that printing works -
+  the detailed TESTING.md checklist hasn't been explicitly gone through
+  item by item as far as this log knows.

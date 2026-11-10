@@ -340,8 +340,9 @@ export class BLENativeTransport {
    */
   async connect({ showAllDevices = false } = {}) {
     // Always log at least this one line immediately, synchronously, before
-    // anything that could hang - so the Debug log panel can never end up
-    // completely empty while the Connect button sits on "Connecting...".
+    // anything that could hang - so a stuck "Connecting..." state always
+    // leaves some trace in logcat/remote-debugging, even without an in-app
+    // log viewer (see NOTES.md - the in-app Debug log panel was removed).
     console.log('[BLE native] connect() called, showAllDevices=', showAllDevices);
 
     await this._ensureInitialized();

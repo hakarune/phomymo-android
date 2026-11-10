@@ -7152,8 +7152,8 @@ function init() {
       // WebUSB (used only for PM-241 printers) doesn't exist in an Android
       // WebView, so the USB option above is removed automatically - this is
       // just a clearer explanation than upstream's generic browser-support
-      // log line, visible in the Debug log panel if someone asks "where did
-      // USB go?".
+      // log line, in case someone checks logcat/remote debugging and asks
+      // "where did USB go?".
       console.log('[Native] PM-241 (USB) printers are not supported in this Android app - WebUSB is not available in a WebView. Use a desktop/Android Chrome browser for PM-241.');
     }
   }
