@@ -388,6 +388,17 @@ this project - confirmed nothing in `package.json`/`capacitor.config.json`
 references one - so `npx cap sync android` won't regenerate or overwrite
 these hand-authored files.
 
+## Versioning convention (v1.0.1)
+
+Bumped `android/app/build.gradle`'s `versionCode`/`versionName` (1 → 2,
+"1.0" → "1.0.1") to match the `v1.0.1` tag. This matters beyond
+cosmetics: reinstalling an APK with the same package name and signing
+certificate but an unchanged `versionCode` can be rejected or treated
+ambiguously by Android's package installer UI (tap-to-install from a file
+manager, which is how this has been tested so far) - a real version bump
+makes it an unambiguous update. Going forward, bump both before tagging
+any `vX.Y.Z` release.
+
 ## Pending / to be continued
 
 - Printing itself (text/QR/barcode, the two label sizes, disconnect/
