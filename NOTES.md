@@ -557,3 +557,102 @@ Second half of the same batch:
   unverified beyond the user's manual confirmation that printing works -
   the detailed TESTING.md checklist hasn't been explicitly gone through
   item by item as far as this log knows.
+
+## Dark mode (user-requested, 2026-11-12)
+
+Added 4 dark themes - Material Dark, OLED Dark, Dracula, Nord - picked
+from the 6 the user listed as candidates (skipped Tokyo Night and
+Gruvbox; this spread already covers "neutral baseline," "true-black
+battery saver," "vibrant/colorful," and "muted/cool" without needing all
+six). Picker: a new "Appearance" icon in the desktop header and a
+matching entry in the mobile hamburger menu, both opening a shared
+`#theme-picker-modal`. Choice persists to `localStorage` under
+`phomymo_theme`; a tiny inline script at the very top of `<head>` applies
+the saved theme before first paint (app.js is a deferred module and would
+otherwise cause a visible flash of the light theme on every launch).
+
+**Architecture**: the app has no build step and uses literal Tailwind
+utility classes everywhere (`bg-white`, `text-gray-900`, ...), with no
+pre-existing CSS variable layer. Rewriting every class attribute for 4
+themes wasn't realistic, so instead: defined ~46 semantic CSS variables
+(`--surface-1`, `--text-primary`, `--accent-solid`, `--on-accent-solid`,
+etc.), one `[data-theme="x"]` block per theme setting those variables,
+and ONE shared set of "generic mapping" rules (written once, not per
+theme) that redefine what each actually-used Tailwind class resolves to,
+e.g. `[data-theme] .bg-white { background-color: var(--surface-1); }`.
+Every override selector is prefixed with the `[data-theme]` attribute
+selector specifically so its specificity always exceeds the bare
+Tailwind-generated rule it's overriding (2+ selector components vs
+Tailwind's 1-2), which matters because Tailwind's CDN JIT script injects
+its generated stylesheet into `<head>` at an unpredictable point - with
+equal specificity, a tie would come down to injection order, which isn't
+something to rely on.
+
+**The `text-white` problem**: that class is paired with different solid
+backgrounds throughout the app (`bg-gray-900`, `bg-blue-600`,
+`bg-purple-600`, `bg-green-600`, `bg-red-600`, `bg-yellow-500`), and
+different themes need different text colors on top of each (e.g.
+Dracula's accent is a light pastel cyan, so text on it must be dark, not
+white) - a single blanket `.text-white` rule can't resolve that. Fixed
+with compound (`.bg-purple-600.text-white`) and descendant
+(`.bg-purple-600 .text-white`, for the cases where the colored fill and
+the white text are on a parent/child pair like a numbered circle badge)
+selectors, one pair per solid-color family, each resolving to that
+family's own `--on-*-solid` variable.
+
+**What's deliberately never themed**: the label/canvas rendering itself
+(`#preview-canvas`, `#full-preview-canvas`, `.preview-canvas`) - it's a
+preview of the physical printed label, always white paper + black ink,
+independent of the app's own UI theme - and the literal color-swatch
+previews in the Text Color / Background / Stroke pickers. Both were
+switched from Tailwind classes to inline `style="background-color:..."`
+ahead of building the override system, since inline styles beat any
+class-based override on specificity alone - simpler and more robust than
+trying to write exclusion selectors for every rule. `#zone-toolbar` (the
+multi-label pastel-blue banner) and two branded gradient dialog headers
+get a `.theme-fixed` marker class instead, whose own tiny CSS block
+resets the relevant variables back to light-mode literal values for that
+one subtree - they're small, genuinely self-contained, and keep their
+own fixed color scheme in every theme rather than being dark-mode-aware.
+
+**Color choices**: used each theme's own canonical/official palette where
+one exists (Dracula and Nord both publish an official hex palette;
+Material Dark and OLED Dark followed Google's and the general OLED-theme
+community's conventions respectively - near-black/true-black base,
+progressively lighter "elevated" surfaces, desaturated accent tones for
+Material, vivid saturated accents for OLED since true black can carry
+more color intensity before looking washed out). Every text/background
+and text/solid-button pairing was verified against the real WCAG 2.x
+contrast formula (relative luminance with sRGB gamma correction) rather
+than eyeballed - see
+`/storage/emulated/0/Programs/Github/phomymo-android/www` git history
+for the exact values; a few of Nord's and Dracula's canonical accent
+hexes had to be darkened/adjusted slightly specifically for the
+light-text-on-solid-button case, where the canonical value reads
+beautifully as *text on dark* but is too mid-toned to clear 4.5:1 with
+light text sitting on top of it as a *solid fill*.
+
+**Verification**: spawned one independent subagent (not sharing any of
+this session's own reasoning) specifically to recompute every contrast
+pair from scratch and to grep for any Tailwind class actually used in the
+app that the generic mapping might have missed. It found two real issues
+that got fixed before shipping:
+1. `active:bg-gray-700` (the mobile Print button's pressed state) had no
+   override - harmless in 3 of 4 themes by coincidence, but a 1.75:1
+   contrast failure in Dracula specifically, since Dracula's
+   `--on-accent-solid` is near-black (correct for Dracula's actual
+   pastel-cyan accent) and the un-themed background stayed Tailwind's
+   literal gray-700. Added the missing override.
+2. `--text-tertiary` (maps from `text-gray-400`/`text-gray-500`) failed
+   AA (4.5:1) against the two most-elevated surface tiers in most themes,
+   and against the "secondary panel" tier in 3 of 4 - confirmed via real
+   DOM nesting (e.g. the "Supported Printers" info-dialog card, template
+   preview captions). Brightened `--text-tertiary` in all 4 themes until
+   every surface tier clears 4.5:1 with margin, without pushing it close
+   enough to `--text-secondary` to collapse the two tiers visually.
+It also flagged two purely-cosmetic, no-contrast-risk gaps (the
+`.theme-fixed` reset didn't cover the accent-solid-button variables, and
+the two gradient dialog headers use the same "self-contained, never
+themed" pattern as `#zone-toolbar` without being marked the same way) -
+both fixed for consistency even though neither was an actual readability
+bug.

@@ -99,7 +99,8 @@ import {
   PM241_LABEL_SIZES,
   SYMBOL_LIBRARY,
   ORNAMENT_LIBRARY,
-} from './constants.js?v=107';
+  THEMES,
+} from './constants.js?v=108';
 import {
   bindCheckbox,
   bindToggleButton,
@@ -1750,7 +1751,7 @@ function showPreviewDialog() {
     return `
       <div class="preview-thumbnail cursor-pointer hover:ring-2 hover:ring-blue-500 rounded-lg p-2 bg-gray-50"
            data-index="${idx}">
-        <canvas class="preview-canvas bg-white shadow rounded w-full" data-index="${idx}"></canvas>
+        <canvas class="preview-canvas shadow rounded w-full" style="background-color: #fff;" data-index="${idx}"></canvas>
         <div class="text-xs text-gray-600 mt-1 truncate text-center">${escapeHtml(label)}</div>
         <div class="text-xs text-gray-400 text-center">#${idx + 1}</div>
       </div>
@@ -4928,6 +4929,64 @@ function addOrnamentElement(ornamentId) {
 }
 
 /**
+ * Apply an app theme (UI chrome only - the label canvas itself is never
+ * themed, see the `[data-theme]` CSS in index.html). Persists the choice
+ * so it survives restarts; index.html also has a tiny inline script that
+ * applies the saved theme before first paint, since this module loads too
+ * late to avoid a flash of the light theme otherwise.
+ */
+function applyTheme(themeId) {
+  if (themeId && themeId !== 'light') {
+    document.documentElement.setAttribute('data-theme', themeId);
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+  }
+  try {
+    localStorage.setItem(STORAGE_KEYS.THEME, themeId || 'light');
+  } catch (e) {
+    // Storage unavailable - theme still applies for this session.
+  }
+}
+
+function getCurrentTheme() {
+  return document.documentElement.getAttribute('data-theme') || 'light';
+}
+
+function renderThemePickerOptions() {
+  const container = $('#theme-picker-options');
+  if (!container) return;
+  const current = getCurrentTheme();
+  container.innerHTML = THEMES.map(theme => {
+    const active = theme.id === current;
+    const swatchDots = theme.swatch.map(c =>
+      `<span class="w-5 h-5 rounded-full border border-gray-300" style="background-color: ${c};"></span>`
+    ).join('');
+    return `
+      <button data-theme-id="${theme.id}" class="theme-picker-option w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors ${active ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-gray-200 hover:bg-gray-50 text-gray-700'}">
+        <span class="flex -space-x-1.5">${swatchDots}</span>
+        <span class="flex-1 text-left">${theme.label}</span>
+        ${active ? '<svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>' : ''}
+      </button>
+    `;
+  }).join('');
+  container.querySelectorAll('.theme-picker-option').forEach(btn => {
+    btn.addEventListener('click', () => {
+      applyTheme(btn.dataset.themeId);
+      renderThemePickerOptions();
+    });
+  });
+}
+
+function openThemePicker() {
+  renderThemePickerOptions();
+  $('#theme-picker-modal')?.classList.remove('hidden');
+}
+
+function closeThemePicker() {
+  $('#theme-picker-modal')?.classList.add('hidden');
+}
+
+/**
  * Show printer model selection prompt for unrecognized devices
  * @param {string} deviceName - The connected device name
  */
@@ -6095,7 +6154,7 @@ function checkCompatibility() {
     overlay.innerHTML = `
       <div class="bg-white rounded-2xl shadow-2xl w-[600px] max-w-full overflow-hidden">
         <!-- Header -->
-        <div class="bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-4 text-white relative">
+        <div class="theme-fixed bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-4 text-white relative">
           <div class="flex items-center gap-3">
             <div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
@@ -6650,10 +6709,10 @@ function populateMobileProps() {
             <div class="prop-label">Text Color</div>
             <div class="flex gap-2">
               <button class="flex-1 py-2.5 border rounded flex items-center justify-center gap-1 ${textColor === 'black' ? 'bg-blue-100 border-blue-400' : 'border-gray-300 bg-gray-50'}" data-color="black">
-                <span class="w-4 h-4 bg-black rounded"></span> Black
+                <span class="w-4 h-4 rounded" style="background-color: #000;"></span> Black
               </button>
               <button class="flex-1 py-2.5 border rounded flex items-center justify-center gap-1 ${textColor === 'white' ? 'bg-blue-100 border-blue-400' : 'border-gray-300 bg-gray-50'}" data-color="white">
-                <span class="w-4 h-4 bg-white border border-gray-300 rounded"></span> White
+                <span class="w-4 h-4 rounded" style="background-color: #fff; border: 1px solid #d1d5db;"></span> White
               </button>
             </div>
           </div>
@@ -6664,10 +6723,10 @@ function populateMobileProps() {
         <div class="flex gap-2">
           <button class="flex-1 py-2.5 border rounded text-sm ${bgColor === 'transparent' ? 'bg-blue-100 border-blue-400' : 'border-gray-300 bg-gray-50'}" data-bg="transparent">None</button>
           <button class="flex-1 py-2.5 border rounded flex items-center justify-center gap-1 ${bgColor === 'black' ? 'bg-blue-100 border-blue-400' : 'border-gray-300 bg-gray-50'}" data-bg="black">
-            <span class="w-4 h-4 bg-black rounded"></span>
+            <span class="w-4 h-4 rounded" style="background-color: #000;"></span>
           </button>
           <button class="flex-1 py-2.5 border rounded flex items-center justify-center gap-1 ${bgColor === 'white' ? 'bg-blue-100 border-blue-400' : 'border-gray-300 bg-gray-50'}" data-bg="white">
-            <span class="w-4 h-4 bg-white border border-gray-300 rounded"></span>
+            <span class="w-4 h-4 rounded" style="background-color: #fff; border: 1px solid #d1d5db;"></span>
           </button>
         </div>
       </div>
@@ -6799,10 +6858,10 @@ function populateMobileProps() {
         <div class="flex gap-2">
           <button class="flex-1 py-2.5 border rounded ${strokeValue === 'none' ? 'bg-blue-100 border-blue-400' : 'border-gray-300 bg-gray-50'}" data-stroke="none">None</button>
           <button class="flex-1 py-2.5 border rounded flex items-center justify-center gap-1 ${strokeValue === 'black' ? 'bg-blue-100 border-blue-400' : 'border-gray-300 bg-gray-50'}" data-stroke="black">
-            <span class="w-4 h-4 bg-black rounded"></span> Black
+            <span class="w-4 h-4 rounded" style="background-color: #000;"></span> Black
           </button>
           <button class="flex-1 py-2.5 border rounded flex items-center justify-center gap-1 ${strokeValue === 'white' ? 'bg-blue-100 border-blue-400' : 'border-gray-300 bg-gray-50'}" data-stroke="white">
-            <span class="w-4 h-4 bg-white border border-gray-300 rounded"></span> White
+            <span class="w-4 h-4 rounded" style="background-color: #fff; border: 1px solid #d1d5db;"></span> White
           </button>
         </div>
       </div>
@@ -7959,6 +8018,17 @@ function init() {
       addOrnamentElement(btn.dataset.ornament);
       closeOrnamentPicker();
     });
+  });
+
+  // Theme picker (shared modal, desktop "Appearance" button and mobile menu item)
+  $('#theme-btn')?.addEventListener('click', () => openThemePicker());
+  $('#mobile-theme-btn')?.addEventListener('click', () => {
+    closeMobileMenu();
+    openThemePicker();
+  });
+  $('#theme-picker-close')?.addEventListener('click', closeThemePicker);
+  $('#theme-picker-modal')?.addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeThemePicker();
   });
 
   // Element actions

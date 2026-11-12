@@ -1,6 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script>
+    // Applied as early as possible (before any CSS paints) to avoid a
+    // flash of the light theme on startup. Kept intentionally tiny and
+    // dependency-free since app.js (a module) loads and runs later.
+    try {
+      var _t = localStorage.getItem('phomymo_theme');
+      if (_t && _t !== 'light') document.documentElement.setAttribute('data-theme', _t);
+    } catch (e) {}
+  </script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -326,6 +335,312 @@
       transform: translateX(0) !important;
     }
   </style>
+
+  <!--
+    Dark theme system.
+
+    Architecture: the app's markup uses literal Tailwind color utility
+    classes (bg-white, text-gray-900, bg-blue-600, ...) everywhere - there
+    was no CSS-variable layer to begin with. Rather than rewrite every
+    class attribute in the app, this block overrides what those specific
+    classes RESOLVE to, scoped under `[data-theme="..."]` on <html>, using
+    one shared variable layer so each theme only has to define ~35
+    variables instead of repeating every Tailwind-class override 4 times.
+
+    Every selector below is prefixed with `[data-theme]` (an attribute
+    selector), which makes it one specificity level above the equivalent
+    bare Tailwind utility class/pseudo-class selector Tailwind's CDN
+    runtime generates - so these always win regardless of when Tailwind's
+    JIT-generated stylesheet gets injected into <head>, with no reliance
+    on source order.
+
+    What's intentionally NOT touched (stays literal in every theme):
+    - The label/canvas rendering itself (#preview-canvas, #full-preview-
+      canvas, .preview-canvas) - it represents physical white paper + black
+      ink, independent of the app's own UI theme. These were switched from
+      Tailwind's bg-white class to an inline style so they're immune to the
+      overrides below regardless of specificity.
+    - Literal color-swatch previews (the Text Color / Background / Stroke
+      pickers' black/white squares) - also switched to inline styles for
+      the same reason; they represent actual selectable colors, not UI.
+    - The two "branded gradient banner" dialog headers (Info dialog,
+      update-progress dialog) and the multi-zone toolbar - small,
+      self-contained blocks that keep their own fixed color scheme in
+      every theme via the `.theme-fixed` escape hatch below, which resets
+      the variables for that subtree back to the light defaults.
+  -->
+  <style id="theme-styles">
+    /* ===== Generic Tailwind-class -> variable mapping (shared by all themes) ===== */
+    [data-theme] .bg-gray-100,
+    [data-theme] .hover\:bg-gray-100:hover,
+    [data-theme] .active\:bg-gray-100:active { background-color: var(--surface-3); }
+    [data-theme] .bg-gray-50,
+    [data-theme] .hover\:bg-gray-50:hover { background-color: var(--surface-2); }
+    [data-theme] .bg-white { background-color: var(--surface-1); }
+    [data-theme] .bg-gray-200,
+    [data-theme] .hover\:bg-gray-200:hover,
+    [data-theme] .active\:bg-gray-200:active,
+    [data-theme] .hover\:bg-gray-300:hover { background-color: var(--surface-4); }
+    [data-theme] .bg-gray-400 { background-color: var(--surface-strong); }
+
+    [data-theme] .text-gray-900,
+    [data-theme] .text-gray-800,
+    [data-theme] .hover\:text-gray-800:hover { color: var(--text-primary); }
+    [data-theme] .text-gray-700,
+    [data-theme] .text-gray-600,
+    [data-theme] .hover\:text-gray-600:hover { color: var(--text-secondary); }
+    [data-theme] .text-gray-500,
+    [data-theme] .text-gray-400 { color: var(--text-tertiary); }
+    [data-theme] .text-gray-300 { color: var(--text-disabled); }
+
+    [data-theme] .border-gray-100 { border-color: var(--border-subtle); }
+    [data-theme] .border-gray-200,
+    [data-theme] .border-gray-300 { border-color: var(--border-default); }
+    [data-theme] .focus\:ring-gray-400:focus { --tw-ring-color: var(--border-strong); }
+
+    /* Primary ("dark pill") button: bg-gray-900/bg-gray-800 + text-white */
+    [data-theme] .bg-gray-900 { background-color: var(--accent-solid); }
+    [data-theme] .hover\:bg-gray-800:hover,
+    [data-theme] .bg-gray-800 { background-color: var(--accent-solid-hover); }
+    [data-theme] .active\:bg-gray-700:active { background-color: var(--accent-solid-hover); }
+    [data-theme] .bg-gray-900.text-white,
+    [data-theme] .bg-gray-900 .text-white,
+    [data-theme] .bg-gray-800.text-white { color: var(--on-accent-solid); }
+
+    /* Accent (blue family) */
+    [data-theme] .bg-blue-50,
+    [data-theme] .hover\:bg-blue-50:hover { background-color: var(--accent-surface-weak); }
+    [data-theme] .bg-blue-100,
+    [data-theme] .bg-blue-200,
+    [data-theme] .hover\:bg-blue-100:hover,
+    [data-theme] .hover\:bg-blue-200:hover { background-color: var(--accent-surface); }
+    [data-theme] .bg-blue-500,
+    [data-theme] .bg-blue-600 { background-color: var(--accent-solid); }
+    [data-theme] .hover\:bg-blue-600:hover,
+    [data-theme] .hover\:bg-blue-700:hover { background-color: var(--accent-solid-hover); }
+    [data-theme] .bg-blue-500.text-white,
+    [data-theme] .bg-blue-500 .text-white,
+    [data-theme] .bg-blue-600.text-white,
+    [data-theme] .bg-blue-600 .text-white { color: var(--on-accent-solid); }
+    [data-theme] .text-blue-600,
+    [data-theme] .text-blue-700,
+    [data-theme] .text-blue-900,
+    [data-theme] .hover\:text-blue-800:hover { color: var(--accent-text); }
+    [data-theme] .border-blue-100,
+    [data-theme] .border-blue-200,
+    [data-theme] .border-blue-300,
+    [data-theme] .border-blue-400 { border-color: var(--accent-border); }
+    [data-theme] .focus\:ring-blue-400:focus,
+    [data-theme] .focus\:ring-blue-500:focus,
+    [data-theme] .ring-blue-400,
+    [data-theme] .hover\:ring-blue-500:hover { --tw-ring-color: var(--accent-ring); }
+
+    /* Purple family (template / multi-zone features) */
+    [data-theme] .bg-purple-50,
+    [data-theme] .hover\:bg-purple-50:hover { background-color: var(--purple-surface-weak); }
+    [data-theme] .bg-purple-100,
+    [data-theme] .hover\:bg-purple-100:hover,
+    [data-theme] .active\:bg-purple-100:active,
+    [data-theme] .hover\:bg-purple-200:hover,
+    [data-theme] .active\:bg-purple-200:active { background-color: var(--purple-surface); }
+    [data-theme] .bg-purple-600 { background-color: var(--purple-solid); }
+    [data-theme] .hover\:bg-purple-700:hover { background-color: var(--purple-solid-hover); }
+    [data-theme] .active\:bg-purple-800:active { background-color: var(--purple-solid-active); }
+    [data-theme] .bg-purple-600.text-white,
+    [data-theme] .bg-purple-600 .text-white { color: var(--on-purple-solid); }
+    [data-theme] .text-purple-400,
+    [data-theme] .text-purple-600,
+    [data-theme] .text-purple-700,
+    [data-theme] .text-purple-900,
+    [data-theme] .hover\:text-purple-600:hover,
+    [data-theme] .hover\:text-purple-800:hover { color: var(--purple-text); }
+    [data-theme] .border-purple-200 { border-color: var(--purple-border); }
+
+    /* Danger (red family) */
+    [data-theme] .bg-red-50,
+    [data-theme] .hover\:bg-red-50:hover,
+    [data-theme] .active\:bg-red-100:active { background-color: var(--danger-surface-weak); }
+    [data-theme] .bg-red-600 { background-color: var(--danger-solid); }
+    [data-theme] .bg-red-600.text-white { color: var(--on-danger-solid); }
+    [data-theme] .text-red-500,
+    [data-theme] .text-red-600,
+    [data-theme] .text-red-700,
+    [data-theme] .hover\:text-red-700:hover { color: var(--danger-text); }
+    [data-theme] .border-red-200,
+    [data-theme] .border-red-300 { border-color: var(--danger-border); }
+
+    /* Success (green family) */
+    [data-theme] .bg-green-50 { background-color: var(--success-surface-weak); }
+    [data-theme] .bg-green-100 { background-color: var(--success-surface); }
+    [data-theme] .bg-green-500,
+    [data-theme] .bg-green-600 { background-color: var(--success-solid); }
+    [data-theme] .bg-green-500.text-white,
+    [data-theme] .bg-green-500 .text-white,
+    [data-theme] .bg-green-600.text-white { color: var(--on-success-solid); }
+    [data-theme] .text-green-500,
+    [data-theme] .text-green-700,
+    [data-theme] .text-green-800 { color: var(--success-text); }
+    [data-theme] .border-green-100,
+    [data-theme] .border-green-300 { border-color: var(--success-border); }
+
+    /* Warning (amber / yellow / orange family) */
+    [data-theme] .bg-amber-50,
+    [data-theme] .hover\:bg-amber-50:hover { background-color: var(--warning-surface-weak); }
+    [data-theme] .bg-amber-100,
+    [data-theme] .bg-orange-100 { background-color: var(--warning-surface); }
+    [data-theme] .bg-yellow-500 { background-color: var(--warning-solid); }
+    [data-theme] .bg-yellow-500.text-white { color: var(--on-warning-solid); }
+    [data-theme] .text-amber-100,
+    [data-theme] .text-amber-600,
+    [data-theme] .text-amber-700,
+    [data-theme] .text-orange-700,
+    [data-theme] .text-yellow-500 { color: var(--warning-text); }
+    [data-theme] .border-amber-200 { border-color: var(--warning-border); }
+
+    /* ===== Component classes built with Tailwind's @apply, or plain CSS,
+       instead of Tailwind utility classes on the element - @apply bakes
+       its colors into the component rule itself at build time, so none
+       of the generic class-name mapping above can reach them. Each needs
+       its own explicit override. ===== */
+    [data-theme] .toolbar-btn { background-color: var(--surface-1); border-color: var(--border-default); color: var(--text-secondary); }
+    [data-theme] .toolbar-btn:hover { background-color: var(--surface-3); border-color: var(--border-strong); }
+    [data-theme] .toolbar-btn:active { background-color: var(--surface-4); }
+    [data-theme] .toolbar-btn:disabled:hover { background-color: var(--surface-1); border-color: var(--border-default); }
+    [data-theme] .toolbar-divider { background-color: var(--border-default); }
+    [data-theme] .prop-label { color: var(--text-tertiary); }
+    [data-theme] .prop-input { background-color: var(--surface-2); border-color: var(--border-default); color: var(--text-primary); }
+    [data-theme] .prop-input:focus { box-shadow: 0 0 0 2px var(--accent-ring); }
+    @media (max-width: 767px) {
+      [data-theme] .prop-input { background-color: var(--surface-3); border-color: var(--border-strong); }
+      [data-theme] .prop-input:focus { background-color: var(--surface-2); }
+    }
+    [data-theme] .mobile-toolbar { background-color: var(--surface-1); border-color: var(--border-default); }
+    [data-theme] .mobile-tool-btn { color: var(--text-secondary); }
+    [data-theme] .mobile-tool-btn:active { background-color: var(--surface-3); }
+    [data-theme] .mobile-tool-btn.danger { color: var(--danger-text); }
+    [data-theme] .mobile-divider { background-color: var(--border-default); }
+    [data-theme] .mobile-props-panel { background-color: var(--surface-1); }
+    [data-theme] .mobile-props-header { border-color: var(--border-default); }
+
+    /* ===== Escape hatch: self-contained banners keep their own fixed light colors ===== */
+    .theme-fixed, .theme-fixed * {
+      --surface-1: #ffffff; --surface-2: #f9fafb; --surface-3: #f3f4f6; --surface-4: #e5e7eb;
+      --text-primary: #111827; --text-secondary: #4b5563; --text-tertiary: #6b7280; --text-disabled: #d1d5db;
+      --border-subtle: #f3f4f6; --border-default: #e5e7eb;
+      --accent-text: #1d4ed8; --accent-surface-weak: #eff6ff; --accent-surface: #dbeafe;
+      --accent-solid: #2563eb; --accent-solid-hover: #1d4ed8; --on-accent-solid: #ffffff;
+      --accent-border: #93c5fd; --accent-ring: #60a5fa;
+    }
+
+    /* ===== Theme palettes ===== */
+    /* Material Dark - Google Material Design's dark theme conventions:
+       a near-black base (#121212) with progressively lighter "elevated"
+       surfaces, and desaturated/light-toned accent colors (per Material's
+       own dark-theme guidance, saturated colors are reduced to keep glare
+       and contrast in check against the dark base). */
+    [data-theme="material-dark"] {
+      --surface-0: #121212; --surface-1: #1e1e1e; --surface-2: #242424; --surface-3: #2a2a2a; --surface-4: #333333;
+      --surface-strong: #5c5c5c;
+      --text-primary: #e6e6e6; --text-secondary: #b0b0b0; --text-tertiary: #9e9e9e; --text-disabled: #5c5c5c;
+      --border-subtle: #262626; --border-default: #3a3a3a; --border-strong: #525252;
+      --accent-solid: #2962ff; --accent-solid-hover: #1e4fd6; --on-accent-solid: #ffffff; --accent-text: #90caf9;
+      --accent-surface-weak: #16233d; --accent-surface: #1e335c; --accent-border: #2f4c85; --accent-ring: #5c8ee0;
+      --purple-solid: #7c4dff; --purple-solid-hover: #6a3df0; --purple-solid-active: #5a30e0; --on-purple-solid: #ffffff;
+      --purple-text: #cbb2ff; --purple-surface-weak: #241b3d; --purple-surface: #30244f; --purple-border: #4b3b7a;
+      --success-solid: #4caf50; --on-success-solid: #0b2e13; --success-text: #81c995;
+      --success-surface-weak: #0f2912; --success-surface: #163a19; --success-border: #2e5e31;
+      --danger-solid: #d93025; --on-danger-solid: #ffffff; --danger-text: #f28b82;
+      --danger-surface-weak: #30140f; --danger-border: #5c2b22;
+      --warning-solid: #f9ab00; --on-warning-solid: #2b1d00; --warning-text: #fdd663;
+      --warning-surface-weak: #2e2308; --warning-surface: #3a2c0a; --warning-border: #594411;
+    }
+
+    /* OLED Dark - true-black base (saves power on OLED screens, and is the
+       defining trait of this category of theme) with vivid, highly
+       saturated accents, since pure black can carry much more color
+       intensity before anything looks washed out. Elevated surfaces step
+       up from #000 rather than down, since there's no darker tier below it. */
+    [data-theme="oled-dark"] {
+      --surface-0: #000000; --surface-1: #0d0d0d; --surface-2: #121212; --surface-3: #1a1a1a; --surface-4: #262626;
+      --surface-strong: #595959;
+      --text-primary: #ededed; --text-secondary: #a8a8a8; --text-tertiary: #8f8f8f; --text-disabled: #4d4d4d;
+      --border-subtle: #1a1a1a; --border-default: #2e2e2e; --border-strong: #454545;
+      --accent-solid: #0277bd; --accent-solid-hover: #025f97; --on-accent-solid: #ffffff; --accent-text: #4fc3f7;
+      --accent-surface-weak: #081c26; --accent-surface: #0e2c3b; --accent-border: #19526d; --accent-ring: #4fc3f7;
+      --purple-solid: #6200ea; --purple-solid-hover: #5200c7; --purple-solid-active: #4500aa; --on-purple-solid: #ffffff;
+      --purple-text: #b388ff; --purple-surface-weak: #1a0a33; --purple-surface: #26124a; --purple-border: #452086;
+      --success-solid: #00c853; --on-success-solid: #04210c; --success-text: #69f0ae;
+      --success-surface-weak: #052010; --success-surface: #0a2e17; --success-border: #14512a;
+      --danger-solid: #c62828; --on-danger-solid: #ffffff; --danger-text: #ff8a80;
+      --danger-surface-weak: #2a0c0c; --danger-border: #5c1a1a;
+      --warning-solid: #ffab00; --on-warning-solid: #2b1d00; --warning-text: #ffd740;
+      --warning-surface-weak: #2e2308; --warning-surface: #3a2c0a; --warning-border: #594411;
+    }
+
+    /* Dracula - the official palette (draculatheme.com): background
+       #282a36, foreground #f8f8f2, comment #6272a4, and the signature
+       cyan/green/orange/pink/purple/red/yellow accent set. Accent colors
+       here are light/pastel by design, so solid-filled buttons use dark
+       text on top instead of white. */
+    [data-theme="dracula"] {
+      --surface-0: #20212c; --surface-1: #282a36; --surface-2: #2f3140; --surface-3: #383a4a; --surface-4: #44475a;
+      --surface-strong: #6272a4;
+      --text-primary: #f8f8f2; --text-secondary: #c7c9db; --text-tertiary: #b4b7cd; --text-disabled: #6272a4;
+      --border-subtle: #383a4a; --border-default: #44475a; --border-strong: #6272a4;
+      --accent-solid: #8be9fd; --accent-solid-hover: #6fd8ee; --on-accent-solid: #13161f; --accent-text: #8be9fd;
+      --accent-surface-weak: #1c2b30; --accent-surface: #203640; --accent-border: #3a6670; --accent-ring: #8be9fd;
+      --purple-solid: #bd93f9; --purple-solid-hover: #a97ff5; --purple-solid-active: #9568ef; --on-purple-solid: #13161f;
+      --purple-text: #bd93f9; --purple-surface-weak: #241d30; --purple-surface: #2d2340; --purple-border: #513f6e;
+      --success-solid: #50fa7b; --on-success-solid: #13161f; --success-text: #50fa7b;
+      --success-surface-weak: #16291d; --success-surface: #1b3523; --success-border: #2f5c3b;
+      --danger-solid: #ff5555; --on-danger-solid: #13161f; --danger-text: #ff6e6e;
+      --danger-surface-weak: #2e1a1a; --danger-border: #5c3030;
+      --warning-solid: #ffb86c; --on-warning-solid: #13161f; --warning-text: #ffb86c;
+      --warning-surface-weak: #2e2010; --warning-surface: #3a2814; --warning-border: #5c4320;
+    }
+
+    /* Nord - the official arctic/bluish palette (nordtheme.com): nord0-3
+       for dark backgrounds, nord4-6 for text, and the "frost"/"aurora"
+       accent groups. Frost blue (nord10) and aurora red (nord11) are
+       darkened slightly from their canonical values specifically where
+       they sit behind light text on a solid button - the canonical
+       values read beautifully as text-on-dark but are too mid-toned for
+       light-text-on-solid at AA contrast. */
+    [data-theme="nord"] {
+      --surface-0: #272c36; --surface-1: #2e3440; --surface-2: #343a46; --surface-3: #3b4252; --surface-4: #434c5e;
+      --surface-strong: #4c566a;
+      --text-primary: #eceff4; --text-secondary: #d8dee9; --text-tertiary: #b4bdcf; --text-disabled: #4c566a;
+      --border-subtle: #3b4252; --border-default: #4c566a; --border-strong: #5e6b84;
+      --accent-solid: #405c84; --accent-solid-hover: #35507a; --on-accent-solid: #eceff4; --accent-text: #88c0d0;
+      --accent-surface-weak: #202b36; --accent-surface: #263340; --accent-border: #3e5468; --accent-ring: #88c0d0;
+      --purple-solid: #b48ead; --purple-solid-hover: #a67c9d; --purple-solid-active: #986c8d; --on-purple-solid: #19121c;
+      --purple-text: #d0b3cc; --purple-surface-weak: #26222c; --purple-surface: #332c38; --purple-border: #5c4d58;
+      --success-solid: #a3be8c; --on-success-solid: #121b0a; --success-text: #c3d6aa;
+      --success-surface-weak: #1e2718; --success-surface: #28331f; --success-border: #44573a;
+      --danger-solid: #90424a; --on-danger-solid: #eceff4; --danger-text: #e8a3a9;
+      --danger-surface-weak: #2a1a1c; --danger-border: #5c3238;
+      --warning-solid: #ebcb8b; --on-warning-solid: #2b2208; --warning-text: #ebcb8b;
+      --warning-surface-weak: #2e2918; --warning-surface: #3a3420; --warning-border: #5c5230;
+    }
+
+    /* ===== Page-level backdrop + a few non-Tailwind-class surfaces =====
+       body also carries the literal `.bg-gray-100` class, so this needs
+       one extra selector component (the element type) to outrank the
+       generic `.bg-gray-100` -> --surface-3 mapping above and actually
+       land on the dedicated, slightly-more-recessed page tier. */
+    [data-theme] body.bg-gray-100 { background-color: var(--surface-0); }
+    [data-theme] #mobile-header,
+    [data-theme] .desktop-only.border-b,
+    [data-theme] #mobile-toolbar,
+    [data-theme] #mobile-props-panel { background-color: var(--surface-1); border-color: var(--border-default); }
+    [data-theme] select,
+    [data-theme] input[type="text"],
+    [data-theme] input[type="number"] { color-scheme: dark; }
+    [data-theme] ::placeholder { color: var(--text-tertiary); opacity: 1; }
+    [data-theme] #status-dot-standalone,
+    [data-theme] #status-dot,
+    [data-theme] #mobile-status-dot { background-color: var(--surface-strong); }
+  </style>
 </head>
 <body class="bg-gray-100 h-screen flex flex-col overflow-hidden">
 
@@ -425,6 +740,11 @@
       </div>
 
       <div class="flex items-center gap-1.5 sm:gap-3">
+        <!-- Appearance -->
+        <button id="theme-btn" class="p-1.5 sm:p-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors" title="Appearance">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>
+        </button>
+
         <!-- Connection -->
         <div class="flex items-center gap-1 sm:gap-2 text-sm">
           <select id="conn-type" class="hidden sm:block px-2 py-1.5 border border-gray-300 rounded-lg bg-white focus:outline-none text-xs sm:text-sm">
@@ -609,7 +929,7 @@
   </div>
 
   <!-- Multi-Label Zone Toolbar (hidden by default, desktop only) -->
-  <div id="zone-toolbar" class="hidden desktop-only bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-200 px-2 sm:px-4 py-2 flex-shrink-0">
+  <div id="zone-toolbar" class="theme-fixed hidden desktop-only bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-200 px-2 sm:px-4 py-2 flex-shrink-0">
     <div class="flex items-center gap-2 sm:gap-4 flex-wrap">
       <!-- Zone Info -->
       <div class="flex items-center gap-2">
@@ -888,10 +1208,10 @@
               <label class="text-[10px] text-gray-400 uppercase tracking-wide">Color</label>
               <div class="flex border border-gray-200 rounded overflow-hidden">
                 <button data-color="black" class="color-btn flex-1 py-1 hover:bg-gray-50" title="Black text">
-                  <span class="block w-3 h-3 mx-auto rounded-sm border border-gray-300 bg-black"></span>
+                  <span class="block w-3 h-3 mx-auto rounded-sm border border-gray-300" style="background-color: #000;"></span>
                 </button>
                 <button data-color="white" class="color-btn flex-1 py-1 hover:bg-gray-50 border-l border-gray-200" title="White text">
-                  <span class="block w-3 h-3 mx-auto rounded-sm border border-gray-300 bg-white"></span>
+                  <span class="block w-3 h-3 mx-auto rounded-sm border border-gray-300" style="background-color: #fff;"></span>
                 </button>
               </div>
             </div>
@@ -902,10 +1222,10 @@
                   <span class="block w-3 h-3 mx-auto rounded-sm border border-gray-300" style="background-image: linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%); background-size: 4px 4px; background-position: 0 0, 0 2px, 2px -2px, -2px 0px;"></span>
                 </button>
                 <button data-bg="white" class="bg-btn flex-1 py-1 hover:bg-gray-50 border-l border-gray-200" title="White">
-                  <span class="block w-3 h-3 mx-auto rounded-sm border border-gray-300 bg-white"></span>
+                  <span class="block w-3 h-3 mx-auto rounded-sm border border-gray-300" style="background-color: #fff;"></span>
                 </button>
                 <button data-bg="black" class="bg-btn flex-1 py-1 hover:bg-gray-50 border-l border-gray-200" title="Black">
-                  <span class="block w-3 h-3 mx-auto rounded-sm border border-gray-300 bg-black"></span>
+                  <span class="block w-3 h-3 mx-auto rounded-sm border border-gray-300" style="background-color: #000;"></span>
                 </button>
               </div>
             </div>
@@ -1136,10 +1456,10 @@
               <div class="flex border border-gray-200 rounded overflow-hidden">
                 <button data-stroke="none" class="stroke-btn flex-1 py-1 hover:bg-gray-50 text-[10px]" title="No stroke">None</button>
                 <button data-stroke="black" class="stroke-btn flex-1 py-1 hover:bg-gray-50 border-l border-gray-200" title="Black stroke">
-                  <span class="block w-3 h-3 mx-auto rounded-sm border-2 border-black bg-transparent"></span>
+                  <span class="block w-3 h-3 mx-auto rounded-sm" style="border: 2px solid #000; background-color: transparent;"></span>
                 </button>
                 <button data-stroke="white" class="stroke-btn flex-1 py-1 hover:bg-gray-50 border-l border-gray-200" title="White stroke">
-                  <span class="block w-3 h-3 mx-auto rounded-sm border-2 border-white bg-gray-400"></span>
+                  <span class="block w-3 h-3 mx-auto rounded-sm" style="border: 2px solid #fff; background-color: #9ca3af;"></span>
                 </button>
               </div>
             </div>
@@ -1499,7 +1819,7 @@
   <div id="info-dialog" class="hidden fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
     <div class="bg-white rounded-2xl shadow-2xl w-[600px] max-w-full overflow-hidden">
       <!-- Header -->
-      <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-5 py-4 text-white relative">
+      <div class="theme-fixed bg-gradient-to-r from-blue-600 to-blue-700 px-5 py-4 text-white relative">
         <button id="info-close" class="absolute top-3 right-3 text-white/80 hover:text-white transition-colors">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
@@ -1690,7 +2010,7 @@
       </div>
 
       <div class="p-4 flex justify-center">
-        <canvas id="full-preview-canvas" class="bg-white shadow-lg rounded max-w-full"></canvas>
+        <canvas id="full-preview-canvas" class="shadow-lg rounded max-w-full" style="background-color: #fff;"></canvas>
       </div>
 
       <div class="p-4 border-t border-gray-200 flex items-center justify-between">
@@ -1922,6 +2242,20 @@
           <span class="text-[9px] text-gray-600 leading-tight text-center">Laurel Sprig</span>
         </button>
       </div>
+    </div>
+  </div>
+
+  <!-- Theme Picker Modal (shared by desktop and mobile "Appearance" button) -->
+  <div id="theme-picker-modal" class="hidden fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-[360px] max-w-full overflow-hidden">
+      <div class="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+        <h3 class="text-sm font-semibold text-gray-900">Appearance</h3>
+        <button id="theme-picker-close" class="text-gray-400 hover:text-gray-600 transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <p class="px-5 pt-3 text-xs text-gray-500">The label canvas always stays white and black - it's a preview of the physical printed label. This only changes the app's own colors.</p>
+      <div id="theme-picker-options" class="p-4 space-y-1.5"></div>
     </div>
   </div>
 
@@ -2325,6 +2659,15 @@
 
           <hr class="my-3 border-gray-200">
 
+          <button id="mobile-theme-btn" class="w-full px-3 py-2.5 text-left text-sm hover:bg-gray-100 active:bg-gray-200 rounded-lg flex items-center gap-3">
+            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M12 8a4 4 0 100 8 4 4 0 000-8z"/>
+            </svg>
+            Appearance
+          </button>
+
+          <hr class="my-3 border-gray-200">
+
           <button id="mobile-print-settings-btn" class="w-full px-3 py-2.5 text-left text-sm hover:bg-gray-100 active:bg-gray-200 rounded-lg flex items-center gap-3">
             <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
@@ -2448,7 +2791,7 @@
     pdfjsModule.GlobalWorkerOptions.workerSrc = 'vendor/js/pdf.worker.min.mjs';
     window.pdfjsLib = pdfjsModule;
   </script>
-  <script type="module" src="app.js?v=153"></script>
+  <script type="module" src="app.js?v=154"></script>
   <script>
     // Show body once styles are ready
     requestAnimationFrame(() => {

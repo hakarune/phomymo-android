@@ -137,7 +137,21 @@ export const STORAGE_KEYS = {
   MULTI_LABEL_PRESETS: 'phomymo_multi_label_presets',
   LOCAL_FONTS_ENABLED: 'phomymo_local_fonts_enabled',
   CUSTOM_PRINTERS: 'phomymo_custom_printers',
+  THEME: 'phomymo_theme',
 };
+
+// =============================================================================
+// APP THEMES (UI chrome only - the label/canvas itself always stays white +
+// black, since it represents the physical printed output. See the
+// `[data-theme]` CSS rules in index.html for the actual color values.)
+// =============================================================================
+export const THEMES = [
+  { id: 'light', label: 'Light', swatch: ['#ffffff', '#f3f4f6', '#2563eb'] },
+  { id: 'material-dark', label: 'Material Dark', swatch: ['#121212', '#1e1e1e', '#90caf9'] },
+  { id: 'oled-dark', label: 'OLED Dark', swatch: ['#000000', '#0d0d0d', '#4fc3f7'] },
+  { id: 'dracula', label: 'Dracula', swatch: ['#282a36', '#383a4a', '#bd93f9'] },
+  { id: 'nord', label: 'Nord', swatch: ['#2e3440', '#3b4252', '#88c0d0'] },
+];
 
 // =============================================================================
 // LABEL SIZE PRESETS
