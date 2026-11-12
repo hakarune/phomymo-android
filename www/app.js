@@ -4835,6 +4835,10 @@ async function handlePrint() {
  * Show info dialog
  */
 function showInfoDialog() {
+  const browserReq = $('#info-browser-requirement');
+  if (browserReq) {
+    browserReq.textContent = isNativeApp() ? 'Works fully offline' : 'Requires Chrome, Edge, or Chromium';
+  }
   $('#info-dialog').classList.remove('hidden');
 }
 

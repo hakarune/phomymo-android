@@ -399,6 +399,36 @@ manager, which is how this has been tested so far) - a real version bump
 makes it an unambiguous update. Going forward, bump both before tagging
 any `vX.Y.Z` release.
 
+## In-app attribution + fresh offline re-audit (user-requested, urgent)
+
+- The in-app Info dialog (`#info-dialog`, opened via the info button on
+  both desktop and mobile) only said "Phomymo" / "Not affiliated with
+  Phomemo" - true but not an explicit origin credit, and nothing in the
+  app itself (as opposed to README/NOTICE.md, which a user installing the
+  APK never sees) stated this is an unofficial Android wrapper built on
+  transcriptionstream's open-source web app. Added: the dialog title now
+  reads "Phomymo Android (unofficial)"; a new attribution box explicitly
+  credits the upstream GitHub repo (linked) and states "unofficial... not
+  affiliated with, endorsed by, or supported by Phomemo or the Phomymo
+  author." Also fixed the dialog's stale "Requires Chrome, Edge, or
+  Chromium" line, which is wrong for the native app - `showInfoDialog()`
+  now swaps it to "Works fully offline" when `isNativeApp()` is true.
+- Re-ran a full fresh grep of all of `www/` (not just incrementally, the
+  whole tree again) for `http(s)://` outside `vendor/`/`docs/` to double
+  check nothing new had crept in since the last full pass. Still clean:
+  every hit is an SVG/XML namespace string, inert SEO `<meta>` content, a
+  default placeholder string (`https://example.com` in a QR/barcode
+  element's default text), or a user-initiated `target="_blank"` anchor
+  (GitHub/Stripe/affordablemagic.net - requires an explicit tap, opens the
+  system browser, doesn't touch in-app functionality). Also checked
+  `docs/manual.html` specifically (reachable from the Info dialog) - its
+  images are all local; it has one stale sentence telling the reader to
+  open the live website, left as-is since it's prose a user would have to
+  act on themselves, not an automatic network call. `initLocalFonts()`
+  uses the device's installed fonts via the Local Font Access API (no
+  network), and is a no-op if that API isn't present (likely the case in
+  this WebView, so the button just stays hidden - not broken).
+
 ## Pending / to be continued
 
 - Printing itself (text/QR/barcode, the two label sizes, disconnect/
