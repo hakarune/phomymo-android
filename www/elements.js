@@ -100,7 +100,7 @@ export function createQRElement(data = 'https://example.com', options = {}) {
 
 /**
  * Create a shape element
- * @param {string} shapeType - 'rectangle', 'ellipse', 'line', 'triangle'
+ * @param {string} shapeType - 'rectangle', 'ellipse', 'triangle', 'diamond', 'pentagon', 'hexagon', 'octagon', 'star', 'line'
  * @param {object} options - Position, size, and shape-specific options
  */
 export function createShapeElement(shapeType = 'rectangle', options = {}) {
@@ -114,7 +114,7 @@ export function createShapeElement(shapeType = 'rectangle', options = {}) {
     height: options.height ?? 60,
     rotation: options.rotation ?? 0,
     // Shape-specific
-    shapeType: shapeType,                         // 'rectangle', 'ellipse', 'line', 'triangle'
+    shapeType: shapeType,                         // 'rectangle', 'ellipse', 'triangle', 'diamond', 'pentagon', 'hexagon', 'octagon', 'star', 'line'
     fill: options.fill ?? 'black',                // 'white', 'black', 'dither-light', 'dither-medium', 'dither-dark'
     stroke: options.stroke ?? 'none',             // 'none', 'black', 'white'
     strokeWidth: options.strokeWidth ?? 2,        // Stroke width in pixels

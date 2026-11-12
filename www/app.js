@@ -28,6 +28,8 @@ import {
   duplicateElement,
   bringToFront,
   sendToBack,
+  moveUp,
+  moveDown,
   getElementAtPoint,
   constrainSize,
   groupElements,
@@ -4539,11 +4541,16 @@ function addQRElement() {
 /**
  * Add shape element
  */
-function addShapeElement(shapeType = 'rectangle') {
+function addShapeElement(shapeType = 'rectangle', options = {}) {
+  const { presetSize = null, label = null } = options;
   saveHistory();
   const dims = state.renderer.getSingleLabelDimensions();
-  const width = shapeType === 'line' ? 100 : 80;
-  const height = shapeType === 'line' ? 4 : 60;
+  let width = shapeType === 'line' ? 100 : 80;
+  let height = shapeType === 'line' ? 4 : 60;
+  if (presetSize) {
+    width = presetSize;
+    height = presetSize;
+  }
   const element = createShapeElement(shapeType, {
     x: dims.width / 2 - width / 2,
     y: dims.height / 2 - height / 2,
@@ -4555,7 +4562,104 @@ function addShapeElement(shapeType = 'rectangle') {
   state.elements.push(element);
   autoCloneIfEnabled();
   selectElement(element.id);
-  setStatus(`${shapeType.charAt(0).toUpperCase() + shapeType.slice(1)} added`);
+  setStatus(`${label || (shapeType.charAt(0).toUpperCase() + shapeType.slice(1))} added`);
+}
+
+/**
+ * Add divider lines splitting the current label into an even rows x cols
+ * grid, so a label like 40x30mm can be cut into e.g. four 20x15mm pieces
+ * without guesswork. `gapMm` > 0 draws two lines per boundary (framing a
+ * blank margin) instead of one, for a visible cut allowance.
+ */
+function addGridLines(rows, cols, gapMm) {
+  const dims = state.renderer.getSingleLabelDimensions();
+  const PX_PER_MM = 8; // matches canvas.js's internal mm->px unit (not exported, see NOTES.md)
+  const gapPx = Math.max(0, gapMm) * PX_PER_MM;
+  const cellW = dims.width / cols;
+  const cellH = dims.height / rows;
+  const LINE_STROKE = 1.5;
+
+  saveHistory();
+
+  function addLine(centerX, centerY, length, vertical) {
+    const width = length;
+    const height = Math.max(LINE_STROKE * 2, 4);
+    const el = createShapeElement('line', {
+      x: centerX - width / 2,
+      y: centerY - height / 2,
+      width,
+      height,
+      rotation: vertical ? 90 : 0,
+      strokeWidth: LINE_STROKE,
+      stroke: 'black',
+      zone: state.activeZone,
+    });
+    state.elements.push(el);
+  }
+
+  // Horizontal boundaries (between rows)
+  for (let i = 1; i < rows; i++) {
+    const y = i * cellH;
+    if (gapPx > 0) {
+      addLine(dims.width / 2, y - gapPx / 2, dims.width, false);
+      addLine(dims.width / 2, y + gapPx / 2, dims.width, false);
+    } else {
+      addLine(dims.width / 2, y, dims.width, false);
+    }
+  }
+
+  // Vertical boundaries (between columns)
+  for (let j = 1; j < cols; j++) {
+    const x = j * cellW;
+    if (gapPx > 0) {
+      addLine(x - gapPx / 2, dims.height / 2, dims.height, true);
+      addLine(x + gapPx / 2, dims.height / 2, dims.height, true);
+    } else {
+      addLine(x, dims.height / 2, dims.height, true);
+    }
+  }
+
+  render();
+  const count = (rows - 1 + cols - 1) * (gapPx > 0 ? 2 : 1);
+  setStatus(`Added ${count} grid line${count === 1 ? '' : 's'} (${rows}×${cols})`);
+}
+
+/**
+ * Open/close the Grid splitter dialog, and keep its cell-size preview note
+ * in sync with the current inputs.
+ */
+function updateGridPreviewNote() {
+  const rows = Math.max(1, parseInt($('#grid-rows')?.value, 10) || 1);
+  const cols = Math.max(1, parseInt($('#grid-cols')?.value, 10) || 1);
+  const dims = state.renderer.getSingleLabelDimensions();
+  const PX_PER_MM = 8;
+  const cellWMm = (dims.width / cols / PX_PER_MM).toFixed(1);
+  const cellHMm = (dims.height / rows / PX_PER_MM).toFixed(1);
+  const note = $('#grid-preview-note');
+  if (note) {
+    note.textContent = `${rows * cols} piece${rows * cols === 1 ? '' : 's'}, each about ${cellWMm} × ${cellHMm} mm`;
+  }
+}
+
+function openGridDialog() {
+  updateGridPreviewNote();
+  $('#grid-dialog')?.classList.remove('hidden');
+}
+
+function closeGridDialog() {
+  $('#grid-dialog')?.classList.add('hidden');
+}
+
+/**
+ * Open/close the shared shape picker modal (desktop "Shape" button and
+ * mobile "Shape" button both use this one modal).
+ */
+function openShapePicker() {
+  $('#shape-picker-modal')?.classList.remove('hidden');
+}
+
+function closeShapePicker() {
+  $('#shape-picker-modal')?.classList.add('hidden');
 }
 
 /**
@@ -5205,44 +5309,93 @@ function handleImportFile(file) {
 }
 
 /**
- * Update elements list dropdown
+ * Update the layers list (populates both the desktop "Layers" dropdown and
+ * the mobile Layers modal - same markup/behavior in both).
  */
 function updateElementsList() {
-  const container = $('#elements-list');
+  const containers = [$('#elements-list'), $('#mobile-elements-list')].filter(Boolean);
+  if (containers.length === 0) return;
 
   if (state.elements.length === 0) {
-    container.innerHTML = '<div class="px-3 py-2 text-gray-400 text-center">No elements</div>';
+    containers.forEach(c => { c.innerHTML = '<div class="px-3 py-2 text-gray-400 text-center">No elements</div>'; });
     return;
   }
 
   // Build list HTML - elements in z-order (bottom to top)
+  const count = state.elements.length;
   const html = state.elements.map((el, index) => {
     const isSelected = state.selectedIds.includes(el.id);
     const icon = getElementIcon(el.type);
     const label = getElementLabel(el);
     const layerNum = index + 1;
+    const isTop = index === count - 1;
+    const isBottom = index === 0;
 
     return `
-      <button class="element-list-item w-full px-3 py-1.5 text-left hover:bg-gray-100 flex items-center gap-2 ${isSelected ? 'bg-blue-50 text-blue-700' : ''}"
-              data-element-id="${el.id}">
-        <span class="text-gray-400 text-xs w-4">${layerNum}</span>
-        ${icon}
-        <span class="flex-1 truncate">${escapeHtml(label)}</span>
-        ${el.groupId ? '<span class="text-xs text-gray-400">G</span>' : ''}
-      </button>
+      <div class="element-list-row w-full px-2 py-1 flex items-center gap-1 ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'}">
+        <button class="element-list-item flex-1 min-w-0 text-left flex items-center gap-2 px-1 py-0.5 ${isSelected ? 'text-blue-700' : ''}"
+                data-element-id="${el.id}">
+          <span class="text-gray-400 text-xs w-4 flex-shrink-0">${layerNum}</span>
+          ${icon}
+          <span class="flex-1 truncate">${escapeHtml(label)}</span>
+          ${el.groupId ? '<span class="text-xs text-gray-400 flex-shrink-0">G</span>' : ''}
+        </button>
+        <button class="layer-move-down p-1 rounded hover:bg-gray-200 disabled:opacity-25 disabled:hover:bg-transparent flex-shrink-0" data-element-id="${el.id}" title="Move down (toward back)" ${isBottom ? 'disabled' : ''}>
+          <svg class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+        <button class="layer-move-up p-1 rounded hover:bg-gray-200 disabled:opacity-25 disabled:hover:bg-transparent flex-shrink-0" data-element-id="${el.id}" title="Move up (toward front)" ${isTop ? 'disabled' : ''}>
+          <svg class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
+        </button>
+      </div>
     `;
   }).reverse().join(''); // Reverse to show top layer first
 
-  container.innerHTML = html;
+  containers.forEach(container => {
+    container.innerHTML = html;
 
-  // Add click handlers
-  container.querySelectorAll('.element-list-item').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const id = btn.dataset.elementId;
-      selectElement(id);
-      $('#elements-dropdown').classList.add('hidden');
+    container.querySelectorAll('.element-list-item').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.elementId;
+        selectElement(id);
+        $('#elements-dropdown')?.classList.add('hidden');
+        closeLayersModal();
+      });
+    });
+
+    container.querySelectorAll('.layer-move-up').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.elementId;
+        saveHistory();
+        state.elements = moveUp(state.elements, id);
+        render();
+        updateElementsList();
+      });
+    });
+
+    container.querySelectorAll('.layer-move-down').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.elementId;
+        saveHistory();
+        state.elements = moveDown(state.elements, id);
+        render();
+        updateElementsList();
+      });
     });
   });
+}
+
+/**
+ * Open/close the mobile Layers modal.
+ */
+function openLayersModal() {
+  updateElementsList();
+  $('#layers-modal')?.classList.remove('hidden');
+}
+
+function closeLayersModal() {
+  $('#layers-modal')?.classList.add('hidden');
 }
 
 /**
@@ -5273,7 +5426,7 @@ function getElementLabel(el) {
     case 'qr':
       return el.qrData ? `QR: ${el.qrData.substring(0, 15)}` : 'QR Code';
     case 'shape':
-      const shapeNames = { rectangle: 'Rectangle', ellipse: 'Ellipse', triangle: 'Triangle', line: 'Line' };
+      const shapeNames = { rectangle: 'Rectangle', ellipse: 'Ellipse', triangle: 'Triangle', diamond: 'Diamond', pentagon: 'Pentagon', hexagon: 'Hexagon', octagon: 'Octagon', star: 'Star', line: 'Line' };
       return shapeNames[el.shapeType] || 'Shape';
     default:
       return 'Element';
@@ -5742,18 +5895,8 @@ function checkCompatibility() {
         </div>
 
         <!-- Footer -->
-        <div class="bg-gray-50 px-5 py-3 border-t border-gray-100 flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <p class="text-xs text-gray-400">Not affiliated with Phomemo</p>
-            <a href="https://donate.stripe.com/7sY7sMese0182tXgn8eAg00" target="_blank" rel="noopener" class="inline-flex items-center gap-1 px-2 py-1 text-pink-600 text-xs hover:text-pink-700 transition-colors">
-              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-              Donate
-            </a>
-          </div>
-          <a href="https://affordablemagic.net" target="_blank" rel="noopener" class="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-lg hover:border-gray-300 hover:shadow-sm transition-all">
-            <img src="vendor/images/affordablemagic-400w.png" alt="Affordable Magic" class="h-4">
-            <span class="text-xs font-medium text-gray-700">An Affordable Magic Product</span>
-          </a>
+        <div class="bg-gray-50 px-5 py-3 border-t border-gray-100">
+          <p class="text-xs text-gray-400">Not affiliated with Phomemo. Unofficial, built on the open-source Phomymo web app.</p>
         </div>
       </div>
     `;
@@ -5833,6 +5976,14 @@ function initMobileUI() {
   $('#mobile-info-btn')?.addEventListener('click', () => {
     closeMobileMenu();
     showInfoDialog();
+  });
+  $('#mobile-layers-btn')?.addEventListener('click', () => {
+    closeMobileMenu();
+    openLayersModal();
+  });
+  $('#layers-modal-close')?.addEventListener('click', closeLayersModal);
+  $('#layers-modal')?.addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeLayersModal();
   });
   $('#mobile-print-btn')?.addEventListener('click', handlePrint);
 
@@ -5996,9 +6147,7 @@ function initMobileUI() {
   // Fixed toolbar - add element buttons
   $('#mobile-add-text')?.addEventListener('click', () => addTextElement());
   $('#mobile-add-image')?.addEventListener('click', () => $('#image-file-input').click());
-  $('#mobile-add-rect')?.addEventListener('click', () => addShapeElement('rectangle'));
-  $('#mobile-add-ellipse')?.addEventListener('click', () => addShapeElement('ellipse'));
-  $('#mobile-add-line')?.addEventListener('click', () => addShapeElement('line'));
+  $('#mobile-add-shape')?.addEventListener('click', () => openShapePicker());
   $('#mobile-add-barcode')?.addEventListener('click', () => addBarcodeElement());
   $('#mobile-add-qr')?.addEventListener('click', () => addQRElement());
 
@@ -6346,6 +6495,11 @@ function populateMobileProps() {
           <option value="rectangle" ${shapeType === 'rectangle' ? 'selected' : ''}>Rectangle</option>
           <option value="ellipse" ${shapeType === 'ellipse' ? 'selected' : ''}>Ellipse</option>
           <option value="triangle" ${shapeType === 'triangle' ? 'selected' : ''}>Triangle</option>
+          <option value="diamond" ${shapeType === 'diamond' ? 'selected' : ''}>Diamond</option>
+          <option value="pentagon" ${shapeType === 'pentagon' ? 'selected' : ''}>Pentagon</option>
+          <option value="hexagon" ${shapeType === 'hexagon' ? 'selected' : ''}>Hexagon</option>
+          <option value="octagon" ${shapeType === 'octagon' ? 'selected' : ''}>Octagon</option>
+          <option value="star" ${shapeType === 'star' ? 'selected' : ''}>Star</option>
           <option value="line" ${shapeType === 'line' ? 'selected' : ''}>Line</option>
         </select>
       </div>
@@ -7175,6 +7329,7 @@ function init() {
 
   // Info dialog
   $('#info-btn').addEventListener('click', showInfoDialog);
+  $('#footer-about-btn')?.addEventListener('click', showInfoDialog);
   $('#info-close').addEventListener('click', hideInfoDialog);
   $('#info-get-started')?.addEventListener('click', hideInfoDialog);
   $('#info-dialog').addEventListener('click', (e) => {
@@ -7427,26 +7582,48 @@ function init() {
   $('#add-barcode').addEventListener('click', addBarcodeElement);
   $('#add-qr').addEventListener('click', addQRElement);
 
-  // Shape dropdown toggle
+  // Shape picker (shared modal, desktop "Shape" button)
   $('#add-shape-btn').addEventListener('click', (e) => {
     e.stopPropagation();
-    $('#shape-dropdown').classList.toggle('hidden');
+    openShapePicker();
   });
-
-  // Shape options
-  $$('.shape-option').forEach(btn => {
+  $('#shape-picker-close')?.addEventListener('click', closeShapePicker);
+  $('#shape-picker-modal')?.addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeShapePicker();
+  });
+  $$('.shape-picker-option').forEach(btn => {
     btn.addEventListener('click', () => {
       const shapeType = btn.dataset.shape;
-      addShapeElement(shapeType);
-      $('#shape-dropdown').classList.add('hidden');
+      const presetSize = btn.dataset.presetSize ? parseInt(btn.dataset.presetSize, 10) : null;
+      const label = btn.dataset.label || null;
+      addShapeElement(shapeType, { presetSize, label });
+      closeShapePicker();
     });
   });
 
-  // Close shape dropdown when clicking outside
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('#add-shape-btn') && !e.target.closest('#shape-dropdown')) {
-      $('#shape-dropdown').classList.add('hidden');
+  // Grid splitter dialog (desktop "Grid" button and mobile menu item)
+  $('#grid-btn')?.addEventListener('click', openGridDialog);
+  $('#mobile-grid-btn')?.addEventListener('click', () => {
+    closeMobileMenu();
+    openGridDialog();
+  });
+  $('#grid-dialog-close')?.addEventListener('click', closeGridDialog);
+  $('#grid-dialog-cancel')?.addEventListener('click', closeGridDialog);
+  $('#grid-dialog')?.addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeGridDialog();
+  });
+  $('#grid-rows')?.addEventListener('input', updateGridPreviewNote);
+  $('#grid-cols')?.addEventListener('input', updateGridPreviewNote);
+  $('#grid-dialog-apply')?.addEventListener('click', () => {
+    const rows = Math.max(1, parseInt($('#grid-rows')?.value, 10) || 1);
+    const cols = Math.max(1, parseInt($('#grid-cols')?.value, 10) || 1);
+    const gapMm = Math.max(0, parseFloat($('#grid-gap')?.value) || 0);
+    if (rows === 1 && cols === 1) {
+      closeGridDialog();
+      return;
     }
+    addGridLines(rows, cols, gapMm);
+    closeGridDialog();
   });
 
   // Element actions

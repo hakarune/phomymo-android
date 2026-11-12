@@ -329,6 +329,11 @@ export const SHAPE_TYPES = [
   { value: 'rectangle', label: 'Rectangle' },
   { value: 'ellipse', label: 'Ellipse' },
   { value: 'triangle', label: 'Triangle' },
+  { value: 'diamond', label: 'Diamond' },
+  { value: 'pentagon', label: 'Pentagon' },
+  { value: 'hexagon', label: 'Hexagon' },
+  { value: 'octagon', label: 'Octagon' },
+  { value: 'star', label: 'Star' },
   { value: 'line', label: 'Line' },
 ];
 

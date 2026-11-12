@@ -208,6 +208,27 @@
       .mobile-only { display: none !important; }
     }
 
+    /* Landscape phones: the mobile UI's fixed header + two-row bottom
+       toolbar (~212px combined) eats a disproportionate share of a short
+       landscape viewport. Shrink icons/padding/text and the reserved body
+       padding so more of the screen is left for the actual canvas. Keyed
+       off orientation+height rather than width, since a landscape phone
+       can be wider than the usual 767px mobile-UI breakpoint. */
+    @media (orientation: landscape) and (max-height: 500px) {
+      body { padding-top: 40px; padding-bottom: 92px; }
+      #mobile-header { padding-top: 4px; padding-bottom: 4px; }
+      #mobile-header svg { width: 18px; height: 18px; }
+      #mobile-header #mobile-label-name { font-size: 0.8rem; }
+      .mobile-toolbar-row { padding: 3px 2px; }
+      .mobile-tool-btn { padding: 2px 6px; font-size: 7px; min-width: 40px; }
+      .mobile-tool-btn svg { width: 15px; height: 15px; margin-bottom: 1px; }
+      .mobile-divider { height: 20px; }
+      #zoom-controls { top: 44px !important; }
+      footer { bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important; }
+      .mobile-props-panel { max-height: 75vh; }
+      .mobile-props-content { max-height: calc(75vh - 80px); }
+    }
+
     /* Mobile fixed bottom toolbar */
     .mobile-toolbar {
       position: fixed;
@@ -333,16 +354,6 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
           </svg>
         </button>
-      </div>
-
-      <!-- GitHub & Affordable Magic Links (far right) -->
-      <div class="flex items-center gap-2 flex-shrink-0">
-        <a href="https://github.com/transcriptionstream/phomymo" target="_blank" rel="noopener" class="p-1.5 text-gray-600 hover:text-gray-900 active:bg-gray-100 rounded-lg">
-          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
-        </a>
-        <a href="https://affordablemagic.net" target="_blank" rel="noopener" class="p-1 active:bg-gray-100 rounded-lg">
-          <img src="vendor/images/affordablemagic-400w.png" alt="Affordable Magic" class="h-10">
-        </a>
       </div>
     </div>
   </header>
@@ -475,25 +486,13 @@
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z"/></svg>
           <span class="hidden sm:inline">Shape</span>
         </button>
-        <div id="shape-dropdown" class="hidden absolute left-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-[60] py-1 min-w-[120px]">
-          <button data-shape="rectangle" class="shape-option w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100 flex items-center gap-2">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="1" stroke-width="2"/></svg>
-            Rectangle
-          </button>
-          <button data-shape="ellipse" class="shape-option w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100 flex items-center gap-2">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="8" ry="6" stroke-width="2"/></svg>
-            Ellipse
-          </button>
-          <button data-shape="triangle" class="shape-option w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100 flex items-center gap-2">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M12 5l8 14H4z"/></svg>
-            Triangle
-          </button>
-          <button data-shape="line" class="shape-option w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100 flex items-center gap-2">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="4" y1="12" x2="20" y2="12" stroke-width="2"/></svg>
-            Line
-          </button>
-        </div>
       </div>
+
+      <!-- Grid splitter -->
+      <button id="grid-btn" class="toolbar-btn" title="Split into Rows/Columns">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="1" stroke-width="2"/><path stroke-width="2" d="M4 12h16M12 4v16"/></svg>
+        <span class="hidden sm:inline">Grid</span>
+      </button>
 
       <div class="toolbar-divider"></div>
 
@@ -576,11 +575,11 @@
 
       <!-- Elements list -->
       <div class="relative flex items-center">
-        <button id="elements-btn" class="toolbar-btn toolbar-btn-menu" title="Elements List">
+        <button id="elements-btn" class="toolbar-btn toolbar-btn-menu" title="Layers">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
-          <span class="hidden sm:inline">Elements</span>
+          <span class="hidden sm:inline">Layers</span>
         </button>
-        <div id="elements-dropdown" class="hidden absolute left-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-[60] py-1 min-w-[180px] max-h-[300px] overflow-y-auto">
+        <div id="elements-dropdown" class="hidden absolute left-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-[60] py-1 min-w-[240px] max-h-[320px] overflow-y-auto">
           <div id="elements-list" class="text-sm">
             <div class="px-3 py-2 text-gray-400 text-center">No elements</div>
           </div>
@@ -643,7 +642,7 @@
   <main class="flex-1 flex overflow-hidden relative">
     <!-- Canvas Area -->
     <div class="flex-1 flex items-center justify-center p-3 sm:p-6 overflow-auto relative">
-      <div id="canvas-container" class="rounded-lg shadow-inner transition-transform origin-center" style="touch-action: none;">
+      <div id="canvas-container" class="rounded-lg shadow-inner origin-center" style="touch-action: none;">
         <canvas id="preview-canvas" class="cursor-crosshair rounded-lg" style="touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;"></canvas>
       </div>
 
@@ -1074,6 +1073,11 @@
               <option value="rectangle">Rectangle</option>
               <option value="ellipse">Ellipse</option>
               <option value="triangle">Triangle</option>
+              <option value="diamond">Diamond</option>
+              <option value="pentagon">Pentagon</option>
+              <option value="hexagon">Hexagon</option>
+              <option value="octagon">Octagon</option>
+              <option value="star">Star</option>
               <option value="line">Line</option>
             </select>
           </div>
@@ -1131,20 +1135,7 @@
       <div class="flex items-center gap-2 sm:gap-4 flex-shrink-0">
         <span id="print-size" class="hidden sm:inline">40 x 30 mm</span>
         <span class="text-gray-300 hidden sm:inline">|</span>
-        <a href="https://github.com/transcriptionstream/phomymo" target="_blank" rel="noopener" class="hover:text-gray-600 transition-colors flex items-center gap-1">
-          <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
-          <span class="hidden sm:inline">GitHub</span>
-        </a>
-        <span class="text-gray-300 hidden sm:inline">|</span>
-        <a href="https://donate.stripe.com/7sY7sMese0182tXgn8eAg00" target="_blank" rel="noopener" class="hidden sm:inline-flex items-center gap-1 hover:text-pink-600 transition-colors">
-          <svg class="w-3 h-3 text-pink-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-          Donate
-        </a>
-        <span class="text-gray-300 hidden md:inline">|</span>
-        <a href="https://affordablemagic.net" target="_blank" rel="noopener" class="hidden md:inline-flex items-center gap-1 hover:text-gray-600 transition-colors">
-          <img src="vendor/images/affordablemagic-400w.png" alt="Affordable Magic" class="h-3">
-          An Affordable Magic product
-        </a>
+        <button id="footer-about-btn" class="hover:text-gray-600 transition-colors" title="About / Attribution">About</button>
       </div>
     </div>
   </footer>
@@ -1570,12 +1561,8 @@
       </div>
 
       <!-- Footer -->
-      <div class="bg-gray-50 px-5 py-3 border-t border-gray-100 flex items-center justify-between">
-        <p class="text-xs text-gray-400">Not affiliated with Phomemo</p>
-        <a href="https://affordablemagic.net" target="_blank" rel="noopener" class="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-lg hover:border-gray-300 hover:shadow-sm transition-all">
-          <img src="vendor/images/affordablemagic-400w.png" alt="Affordable Magic" class="h-4">
-          <span class="text-xs font-medium text-gray-700">An Affordable Magic Product</span>
-        </a>
+      <div class="bg-gray-50 px-5 py-3 border-t border-gray-100">
+        <p class="text-xs text-gray-400">Not affiliated with Phomemo. Original web app by <a href="https://affordablemagic.net" target="_blank" rel="noopener" class="underline hover:text-gray-600">Affordable Magic</a>.</p>
       </div>
     </div>
   </div>
@@ -1700,6 +1687,114 @@
 
   <!-- Toast Container -->
   <div id="toast-container" class="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 pointer-events-none"></div>
+
+  <!-- Shape Picker Modal (shared by desktop "Shape" button and mobile "Shape" button) -->
+  <div id="shape-picker-modal" class="hidden fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-[380px] max-w-full overflow-hidden">
+      <div class="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+        <h3 class="text-sm font-semibold text-gray-900">Add Shape</h3>
+        <button id="shape-picker-close" class="text-gray-400 hover:text-gray-600 transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="p-4 grid grid-cols-4 gap-1.5">
+        <button data-shape="rectangle" class="shape-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="1" stroke-width="2"/></svg>
+          <span class="text-[10px] text-gray-600">Rectangle</span>
+        </button>
+        <button data-shape="rectangle" data-preset-size="60" data-label="Square" class="shape-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1" stroke-width="2"/></svg>
+          <span class="text-[10px] text-gray-600">Square</span>
+        </button>
+        <button data-shape="ellipse" class="shape-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="8" ry="6" stroke-width="2"/></svg>
+          <span class="text-[10px] text-gray-600">Ellipse</span>
+        </button>
+        <button data-shape="ellipse" data-preset-size="60" data-label="Circle" class="shape-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" stroke-width="2"/></svg>
+          <span class="text-[10px] text-gray-600">Circle</span>
+        </button>
+        <button data-shape="triangle" class="shape-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M12 5l8 14H4z"/></svg>
+          <span class="text-[10px] text-gray-600">Triangle</span>
+        </button>
+        <button data-shape="diamond" class="shape-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M12 3 L21 12 L12 21 L3 12 Z"/></svg>
+          <span class="text-[10px] text-gray-600">Diamond</span>
+        </button>
+        <button data-shape="pentagon" class="shape-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M12 3 L20.6 9.2 L17.3 19.3 L6.7 19.3 L3.4 9.2 Z"/></svg>
+          <span class="text-[10px] text-gray-600">Pentagon</span>
+        </button>
+        <button data-shape="hexagon" class="shape-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M16.5 4.2 L21 12 L16.5 19.8 L7.5 19.8 L3 12 L7.5 4.2 Z"/></svg>
+          <span class="text-[10px] text-gray-600">Hexagon</span>
+        </button>
+        <button data-shape="octagon" class="shape-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M15.4 3.7 L20.3 8.6 L20.3 15.4 L15.4 20.3 L8.6 20.3 L3.7 15.4 L3.7 8.6 L8.6 3.7 Z"/></svg>
+          <span class="text-[10px] text-gray-600">Octagon</span>
+        </button>
+        <button data-shape="star" class="shape-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" stroke-linejoin="round" d="M12 2 L14.4 8.8 L21.5 8.9 L15.8 13.2 L17.9 20.1 L12 16 L6.1 20.1 L8.2 13.2 L2.5 8.9 L9.7 8.8 Z"/></svg>
+          <span class="text-[10px] text-gray-600">Star</span>
+        </button>
+        <button data-shape="line" class="shape-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="4" y1="12" x2="20" y2="12" stroke-width="2"/></svg>
+          <span class="text-[10px] text-gray-600">Line</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Layers Modal (mobile - desktop uses the #elements-dropdown in the toolbar) -->
+  <div id="layers-modal" class="hidden fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-[380px] max-w-full max-h-[80vh] overflow-hidden flex flex-col">
+      <div class="flex items-center justify-between px-5 py-3 border-b border-gray-100 flex-shrink-0">
+        <h3 class="text-sm font-semibold text-gray-900">Layers</h3>
+        <button id="layers-modal-close" class="text-gray-400 hover:text-gray-600 transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div id="mobile-elements-list" class="text-sm overflow-y-auto flex-1">
+        <div class="px-3 py-2 text-gray-400 text-center">No elements</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Grid Splitter Dialog -->
+  <div id="grid-dialog" class="hidden fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-[340px] max-w-full overflow-hidden">
+      <div class="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+        <h3 class="text-sm font-semibold text-gray-900">Split into Rows &amp; Columns</h3>
+        <button id="grid-dialog-close" class="text-gray-400 hover:text-gray-600 transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="p-5 space-y-4">
+        <p class="text-xs text-gray-500">Adds divider lines to the label so you can cut it into equal rectangles - e.g. a 40&times;30mm label split 2&times;2 gives four 20&times;15mm pieces.</p>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-[10px] text-gray-400 uppercase tracking-wide">Rows</label>
+            <input id="grid-rows" type="number" min="1" max="20" value="1" class="w-full px-2 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400">
+          </div>
+          <div>
+            <label class="text-[10px] text-gray-400 uppercase tracking-wide">Columns</label>
+            <input id="grid-cols" type="number" min="1" max="20" value="1" class="w-full px-2 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400">
+          </div>
+        </div>
+        <div>
+          <label class="text-[10px] text-gray-400 uppercase tracking-wide">Gap between pieces (mm)</label>
+          <input id="grid-gap" type="number" min="0" max="20" step="0.5" value="0" class="w-full px-2 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400">
+          <p class="text-[10px] text-gray-400 mt-1">0 = a single cut line. Above 0 = two lines with a blank margin between them.</p>
+        </div>
+        <div id="grid-preview-note" class="text-xs text-gray-600 bg-gray-50 rounded-lg p-2"></div>
+        <div class="flex gap-2 pt-1">
+          <button id="grid-dialog-cancel" class="flex-1 px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">Cancel</button>
+          <button id="grid-dialog-apply" class="flex-1 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">Add Lines</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Keyboard Shortcuts Modal -->
   <div id="shortcuts-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -2024,6 +2119,21 @@
 
           <hr class="my-3 border-gray-200">
 
+          <button id="mobile-layers-btn" class="w-full px-3 py-2.5 text-left text-sm hover:bg-gray-100 active:bg-gray-200 rounded-lg flex items-center gap-3">
+            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+            </svg>
+            Layers
+          </button>
+          <button id="mobile-grid-btn" class="w-full px-3 py-2.5 text-left text-sm hover:bg-gray-100 active:bg-gray-200 rounded-lg flex items-center gap-3">
+            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <rect x="4" y="4" width="16" height="16" rx="1" stroke-width="2"/><path stroke-width="2" d="M4 12h16M12 4v16"/>
+            </svg>
+            Split into Rows/Columns
+          </button>
+
+          <hr class="my-3 border-gray-200">
+
           <button id="mobile-print-settings-btn" class="w-full px-3 py-2.5 text-left text-sm hover:bg-gray-100 active:bg-gray-200 rounded-lg flex items-center gap-3">
             <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
@@ -2093,23 +2203,11 @@
         <span>Image</span>
       </button>
       <div class="mobile-divider"></div>
-      <button id="mobile-add-rect" class="mobile-tool-btn">
+      <button id="mobile-add-shape" class="mobile-tool-btn">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <rect x="4" y="6" width="16" height="12" rx="1" stroke-width="2"/>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z"/>
         </svg>
-        <span>Rect</span>
-      </button>
-      <button id="mobile-add-ellipse" class="mobile-tool-btn">
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <ellipse cx="12" cy="12" rx="8" ry="6" stroke-width="2"/>
-        </svg>
-        <span>Circle</span>
-      </button>
-      <button id="mobile-add-line" class="mobile-tool-btn">
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <line x1="4" y1="12" x2="20" y2="12" stroke-width="2"/>
-        </svg>
-        <span>Line</span>
+        <span>Shape</span>
       </button>
       <div class="mobile-divider"></div>
       <button id="mobile-add-barcode" class="mobile-tool-btn">

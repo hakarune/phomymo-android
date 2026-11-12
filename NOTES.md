@@ -429,6 +429,82 @@ any `vX.Y.Z` release.
   network), and is a no-op if that API isn't present (likely the case in
   this WebView, so the button just stays hidden - not broken).
 
+## Feature batch (user-requested, 2026-11-12)
+
+User asked for everything on their "improving" wishlist except QR eye/
+frame styling and stretchable vector frames (both flagged as genuinely
+hard, see the earlier hypothetical-rewrite discussion). First half of the
+batch:
+
+- **Pan fix (#1)**: `#canvas-container` had Tailwind's `transition-transform`
+  class, but `transform` on that element is used *exclusively* by
+  `applyPanOffset()` for the two-finger pan gesture (confirmed via grep -
+  zoom re-renders the canvas bitmap at higher resolution instead of using
+  CSS transforms, so nothing else touches this element's `transform`).
+  The CSS transition was smoothing/delaying every frame of the drag,
+  fighting real-time finger tracking - removed the class. The gesture
+  state machine itself (`startPinchGesture`/`handlePinchMove`/
+  `endPinchGesture`, zoom-vs-pan disambiguation by comparing distance
+  change to midpoint movement) was already correct.
+- **Unified shape picker (#9)**: previously the desktop "Shape" button
+  already had a 4-option dropdown (rectangle/ellipse/triangle/line), but
+  the mobile fixed toolbar had three separate quick-buttons instead
+  (`mobile-add-rect`/`-ellipse`/`-line` - matches the user's "only 3
+  shapes in portrait" observation, and didn't even include triangle).
+  Replaced both with one shared `#shape-picker-modal` (desktop's Shape
+  button and a new single mobile "Shape" button both open it), now
+  offering 11 options: Rectangle, Square (1:1 preset), Ellipse, Circle
+  (1:1 preset), Triangle, Diamond, Pentagon, Hexagon, Octagon, Star, Line.
+  New rendering added to `canvas.js`: `drawDiamond`, a generic
+  `drawPolygon(sides, rotationDeg)` (reused for pentagon/hexagon/octagon
+  with rotation chosen per shape so hexagon/octagon sit flat-top rather
+  than vertex-up), and `drawStar` (5-point, inner radius ratio 0.5 - sharp
+  enough to read as a star, blunt enough to survive thermal printing at
+  label scale). Also extended the *existing* "change shape type after
+  creation" dropdowns (`#prop-shape-type` desktop, `#mobile-prop-shapeType`
+  mobile - these already existed, just capped at 4 types) and the
+  `shapeNames` label lookup to match.
+- **Attribution consolidation (#3)**: removed the GitHub icon + Affordable
+  Magic logo from the mobile header, and the GitHub/Donate/Affordable
+  Magic row from the footer status bar; added a plain-text "About" button
+  in the footer that opens the same Info dialog as the existing (i) button.
+  All GitHub/donate/Affordable-Magic mentions now live in one place: the
+  Info dialog's attribution section (added in the previous "ASAP fix"
+  commit). Also trimmed the non-native browser-compatibility-warning
+  overlay's footer (Donate button + Affordable Magic logo removed, kept
+  only the plain "not affiliated" text) for consistency, even though that
+  overlay never shows inside the native app. Deleted the now-fully-unused
+  `vendor/images/affordablemagic-400w.png` (confirmed via grep: zero
+  remaining references anywhere in `www/`).
+- **Layers panel (#4)**: upstream already had an `#elements-btn` →
+  `#elements-dropdown` "Elements" list (desktop only) showing z-order with
+  click-to-select, and `elements.js` already exported `moveUp`/`moveDown`
+  helpers that were never wired to any UI. Renamed the button/panel to
+  "Layers", added per-row up/down buttons (disabled at the top/bottom of
+  the stack) wired to those existing helpers, and added a mobile
+  equivalent: a new "Layers" entry in the mobile hamburger menu opening a
+  `#layers-modal` that shares the exact same list-building code
+  (`updateElementsList()` now populates both the desktop dropdown and the
+  mobile modal from one function).
+- **Landscape sizing (#12)**: added `@media (orientation: landscape) and
+  (max-height: 500px)` rather than a width breakpoint, since a landscape
+  phone can be wider than the existing 767px mobile-UI cutoff while still
+  being exactly the cramped case being reported. Shrinks the mobile fixed
+  header/toolbar icon sizes, font sizes, and the `body` padding reserved
+  for them (212px of fixed chrome was eating a large fraction of a short
+  landscape viewport before this).
+- **Row/column grid splitter (#2)**: new "Grid" button (desktop toolbar +
+  mobile menu) opening a dialog for rows/columns/gap-in-mm, generating
+  actual `line`-type shape elements at the computed cell boundaries (reuses
+  the existing line shape and the generic rotate-around-center rendering
+  - a vertical divider is just a horizontal line element with
+  `rotation: 90`). A gap > 0 draws two lines per boundary framing a blank
+  margin instead of one, approximating a cut allowance. Uses the same
+  hardcoded `PX_PER_MM = 8` the rest of `app.js` already uses inline in a
+  few places (it's a module-local const in `canvas.js`, never exported -
+  matched existing convention rather than introducing a new cross-module
+  export for this one new feature).
+
 ## Pending / to be continued
 
 - Printing itself (text/QR/barcode, the two label sizes, disconnect/
