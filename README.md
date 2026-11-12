@@ -43,6 +43,43 @@ supported list (P12, A30, M02 family, M03, T02, M04S, M110S, M120,
 M200/M220/M221/M250/M260, D-series, Q30/Q30S) should work too since they
 share the same BLE transport, but are even less verified than the M110.
 
+## Features
+
+Everything in the label designer works fully offline:
+
+- **Elements**: text, images, barcodes, QR codes, 9 shape types (rectangle,
+  square, ellipse, circle, triangle, diamond, pentagon, hexagon, octagon,
+  star, line) via a single shape picker, a library of symbol glyphs (star,
+  heart, skull, tree, paw, lock, and more), and a small set of corner
+  ornaments (rotate the element 90°/180°/270° to mirror one into any
+  corner).
+- **QR codes** can encode a URL, plain text, email, phone number, SMS,
+  WiFi network, location, or a contact (vCard/MECARD) — including
+  importing a contact straight from a `.vcf` file.
+- **Row/column grid splitter**: enter rows × columns (and an optional gap)
+  to add cut lines dividing the current label into equal pieces, instead
+  of measuring and placing lines by hand.
+- **Layers panel**: reorder elements front-to-back without needing to
+  select-and-nudge z-order blindly.
+- Two-finger pan and pinch-to-zoom around the canvas.
+
+### Printing multiple copies
+
+The print dialog has a **Copies** field (1-99). How it's implemented
+depends on the printer's protocol:
+
+- **TSPL printers** (e.g. the PM-241 shipping-label printer) use TSPL's
+  native `PRINT n` command, so the printer itself repeats one buffered
+  image n times.
+- **Every other supported printer** (M-series, D-series, M02, M04, M110,
+  P12) uses protocols that were reverse-engineered by hobbyists from BLE
+  traffic captures, not documented by Phomemo — and none of them expose a
+  "repeat" command. For those, the app sends the complete label data again
+  for each copy, with a short pause in between. This is correct and works
+  reliably, but it does mean N copies takes roughly N times as long to
+  transmit over Bluetooth as a single copy, especially for dense/large
+  labels.
+
 ## Limitations
 
 - **M110C is not supported.** The M110C variant uses Bluetooth Classic
