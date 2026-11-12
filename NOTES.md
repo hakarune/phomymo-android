@@ -505,6 +505,51 @@ batch:
   matched existing convention rather than introducing a new cross-module
   export for this one new feature).
 
+Second half of the same batch:
+
+- **Expanded QR types (#5)**: added `#prop-qr-type` (desktop) /
+  `#mobile-prop-qr-type` (mobile) selects offering URL, Text, Email, Phone,
+  SMS, WiFi, Location, vCard (contact), and MECARD (contact, compact
+  format) - the rendering pipeline itself is untouched, since it only ever
+  reads the one `qrData` string field. Added `createQRElement`'s new
+  `qrType`/`qrFields` properties (structured input, purely a convenience
+  layer), `buildQRData(type, fields)` in `elements.js` to format each type
+  (`WIFI:T:...;S:...;P:...;;`, `tel:`, `mailto:`, `SMSTO:`, `geo:`, vCard
+  3.0, MECARD), and `recomputeQRData()` in `app.js` to keep the visible
+  "Data" field in sync as structured fields change. Editing the Data field
+  directly while a structured type is active switches the element back to
+  plain Text (can't un-format without knowing which sub-field changed).
+- **VCF import (#7)**: a "Import from .vcf" file button inside the vCard
+  type's field group, wired through `parseVCF()` (folded-line-aware vCard
+  parser in `elements.js`, returns name/phone/email/org/url) - picking a
+  file merges parsed fields into the element's existing ones rather than
+  replacing wholesale, so a partially-filled-in contact doesn't get wiped
+  by an incomplete .vcf.
+- **Symbols button (#8)**: new `#symbol-btn` (desktop toolbar) /
+  `#mobile-symbol-btn` (mobile menu) opening a shared `#symbol-picker-modal`
+  with 25 glyphs (star, heart, check/cancel, warning/info, home, flag,
+  bell, gift, sun/moon/cloud/snowflake/flame, tree, paw, anchor, music
+  note, camera, lightning, lock, key, skull, thumbs up). Path data is
+  Google's Material Symbols (Apache 2.0, viewBox `0 -960 960 960`),
+  fetched directly from `fonts.gstatic.com`'s public static icon host -
+  confirmed it genuinely has a literal skull glyph before relying on it.
+  `addSymbolElement()` builds a solid-black `data:image/svg+xml,...` URI
+  and creates a plain Image element from it - no renderer changes needed,
+  since `renderImageElement()` already just does `img.src = <any data
+  URI>` (confirmed this works transparently for SVG sources). Library data
+  lives in `constants.js` as `SYMBOL_LIBRARY`.
+- **Corner ornaments (#10)**: new `#ornament-btn` (desktop toolbar) /
+  `#mobile-ornament-btn` (mobile menu) opening `#ornament-picker-modal`
+  with 5 small, original, hand-authored motifs (bracket, dot border,
+  diamond border, vine, laurel sprig) in `constants.js` as
+  `ORNAMENT_LIBRARY`. Each is anchored to the top-left corner of a 100x100
+  viewBox rather than offering 4 pre-rotated variants per design - the app
+  already lets you rotate any element, so one rotate-90/180/270 reuses the
+  same asset for every corner instead of quadrupling the library. Same
+  Image-element pipeline as Symbols; stored with `currentColor` so the
+  picker's preview buttons tint like any other icon, swapped for literal
+  `black` only when building the actual placed element's data URI.
+
 ## Pending / to be continued
 
 - Printing itself (text/QR/barcode, the two label sizes, disconnect/

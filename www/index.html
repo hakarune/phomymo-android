@@ -494,6 +494,18 @@
         <span class="hidden sm:inline">Grid</span>
       </button>
 
+      <!-- Symbols -->
+      <button id="symbol-btn" class="toolbar-btn" title="Add Symbol">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.975-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.196-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.783-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+        <span class="hidden sm:inline">Symbols</span>
+      </button>
+
+      <!-- Ornaments -->
+      <button id="ornament-btn" class="toolbar-btn" title="Add Corner Ornament">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13V5a1 1 0 011-1h8m-9 9h9m0 0a4 4 0 004-4V5"/></svg>
+        <span class="hidden sm:inline">Ornaments</span>
+      </button>
+
       <div class="toolbar-divider"></div>
 
       <!-- Element Actions -->
@@ -1045,6 +1057,24 @@
         <!-- QR Properties -->
         <div id="props-qr" class="hidden space-y-2">
           <div>
+            <label class="text-[10px] text-gray-400 uppercase tracking-wide">Type</label>
+            <select id="prop-qr-type" class="w-full px-1.5 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400">
+              <option value="text">Text / URL (plain)</option>
+              <option value="url">Website URL</option>
+              <option value="email">Email</option>
+              <option value="phone">Phone number</option>
+              <option value="sms">SMS</option>
+              <option value="wifi">Wi-Fi network</option>
+              <option value="vcard">Contact (vCard)</option>
+              <option value="mecard">Contact (simple)</option>
+              <option value="location">Location</option>
+            </select>
+          </div>
+
+          <!-- Dynamically populated per qrType, see renderQRTypeFields() -->
+          <div id="qr-type-fields" class="space-y-2"></div>
+
+          <div id="qr-data-field-wrap">
             <div class="flex items-center justify-between mb-1">
               <label class="text-[10px] text-gray-400 uppercase tracking-wide">Data</label>
               <div class="relative">
@@ -1061,6 +1091,7 @@
               </div>
             </div>
             <input type="text" id="prop-qr-data" class="w-full px-2 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400" placeholder="Enter URL or text">
+            <p id="qr-data-computed-note" class="hidden text-[10px] text-gray-400 mt-1">Computed from the fields above. Editing this directly switches back to plain text.</p>
           </div>
         </div>
 
@@ -1746,6 +1777,155 @@
     </div>
   </div>
 
+  <!-- Symbol Picker Modal (shared by desktop and mobile "Symbols" button) -->
+  <div id="symbol-picker-modal" class="hidden fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-[380px] max-w-full max-h-[80vh] overflow-hidden flex flex-col">
+      <div class="flex items-center justify-between px-5 py-3 border-b border-gray-100 flex-shrink-0">
+        <h3 class="text-sm font-semibold text-gray-900">Add Symbol</h3>
+        <button id="symbol-picker-close" class="text-gray-400 hover:text-gray-600 transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="p-4 grid grid-cols-5 gap-1.5 overflow-y-auto">
+        <button data-symbol="star" class="symbol-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="currentColor" viewBox="0 -960 960 960"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg>
+          <span class="text-[9px] text-gray-600 leading-tight text-center">Star</span>
+        </button>
+        <button data-symbol="favorite" class="symbol-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="currentColor" viewBox="0 -960 960 960"><path d="m480-120-58-52q-101-91-167-157T150-447.5Q111-500 95.5-544T80-634q0-94 63-157t157-63q52 0 99 22t81 62q34-40 81-62t99-22q94 0 157 63t63 157q0 46-15.5 90T810-447.5Q771-395 705-329T538-172l-58 52Z"/></svg>
+          <span class="text-[9px] text-gray-600 leading-tight text-center">Heart</span>
+        </button>
+        <button data-symbol="check_circle" class="symbol-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="currentColor" viewBox="0 -960 960 960"><path d="m424-296 282-282-56-56-226 226-114-114-56 56 170 170Zm56 216q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Z"/></svg>
+          <span class="text-[9px] text-gray-600 leading-tight text-center">Check</span>
+        </button>
+        <button data-symbol="cancel" class="symbol-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="currentColor" viewBox="0 -960 960 960"><path d="m336-280 144-144 144 144 56-56-144-144 144-144-56-56-144 144-144-144-56 56 144 144-144 144 56 56ZM480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Z"/></svg>
+          <span class="text-[9px] text-gray-600 leading-tight text-center">X / Cancel</span>
+        </button>
+        <button data-symbol="warning" class="symbol-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="currentColor" viewBox="0 -960 960 960"><path d="m40-120 440-760 440 760H40Zm468.5-131.5Q520-263 520-280t-11.5-28.5Q497-320 480-320t-28.5 11.5Q440-297 440-280t11.5 28.5Q463-240 480-240t28.5-11.5ZM440-360h80v-200h-80v200Z"/></svg>
+          <span class="text-[9px] text-gray-600 leading-tight text-center">Warning</span>
+        </button>
+        <button data-symbol="info" class="symbol-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="currentColor" viewBox="0 -960 960 960"><path d="M440-280h80v-240h-80v240Zm68.5-331.5Q520-623 520-640t-11.5-28.5Q497-680 480-680t-28.5 11.5Q440-657 440-640t11.5 28.5Q463-600 480-600t28.5-11.5ZM480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Z"/></svg>
+          <span class="text-[9px] text-gray-600 leading-tight text-center">Info</span>
+        </button>
+        <button data-symbol="home" class="symbol-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="currentColor" viewBox="0 -960 960 960"><path d="M160-120v-480l320-240 320 240v480H560v-280H400v280H160Z"/></svg>
+          <span class="text-[9px] text-gray-600 leading-tight text-center">Home</span>
+        </button>
+        <button data-symbol="flag" class="symbol-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="currentColor" viewBox="0 -960 960 960"><path d="M200-120v-680h360l16 80h224v400H520l-16-80H280v280h-80Z"/></svg>
+          <span class="text-[9px] text-gray-600 leading-tight text-center">Flag</span>
+        </button>
+        <button data-symbol="notifications" class="symbol-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="currentColor" viewBox="0 -960 960 960"><path d="M160-200v-80h80v-280q0-83 50-147.5T420-792v-28q0-25 17.5-42.5T480-880q25 0 42.5 17.5T540-820v28q80 20 130 84.5T720-560v280h80v80H160ZM480-80q-33 0-56.5-23.5T400-160h160q0 33-23.5 56.5T480-80Z"/></svg>
+          <span class="text-[9px] text-gray-600 leading-tight text-center">Bell</span>
+        </button>
+        <button data-symbol="redeem" class="symbol-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="currentColor" viewBox="0 -960 960 960"><path d="M160-280v80h640v-80H160Zm0-440h88q-5-9-6.5-19t-1.5-21q0-50 35-85t85-35q30 0 55.5 15.5T460-826l20 26 20-26q18-24 44-39t56-15q50 0 85 35t35 85q0 11-1.5 21t-6.5 19h88q33 0 56.5 23.5T880-640v440q0 33-23.5 56.5T800-120H160q-33 0-56.5-23.5T80-200v-440q0-33 23.5-56.5T160-720Zm0 320h640v-240H596l84 114-64 46-136-184-136 184-64-46 82-114H160v240Zm228.5-331.5Q400-743 400-760t-11.5-28.5Q377-800 360-800t-28.5 11.5Q320-777 320-760t11.5 28.5Q343-720 360-720t28.5-11.5ZM600-720q17 0 28.5-11.5T640-760q0-17-11.5-28.5T600-800q-17 0-28.5 11.5T560-760q0 17 11.5 28.5T600-720Z"/></svg>
+          <span class="text-[9px] text-gray-600 leading-tight text-center">Gift</span>
+        </button>
+        <button data-symbol="wb_sunny" class="symbol-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="currentColor" viewBox="0 -960 960 960"><path d="M440-800v-120h80v120h-80Zm0 760v-120h80v120h-80Zm360-400v-80h120v80H800Zm-760 0v-80h120v80H40Zm708-252-56-56 70-72 58 58-72 70ZM198-140l-58-58 72-70 56 56-70 72Zm564 0-70-72 56-56 72 70-58 58ZM212-692l-72-70 58-58 70 72-56 56Zm98 382q-70-70-70-170t70-170q70-70 170-70t170 70q70 70 70 170t-70 170q-70 70-170 70t-170-70Z"/></svg>
+          <span class="text-[9px] text-gray-600 leading-tight text-center">Sun</span>
+        </button>
+        <button data-symbol="nightlight" class="symbol-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="currentColor" viewBox="0 -960 960 960"><path d="M560-80q-82 0-155-31.5t-127.5-86Q223-252 191.5-325T160-480.5q0-82.5 31.5-155t86-127Q332-817 405-848.5T560-880q54 0 105 14t95 40q-91 53-145.5 143.5T560-480q0 112 54.5 202.5T760-134q-44 26-95 40T560-80Z"/></svg>
+          <span class="text-[9px] text-gray-600 leading-tight text-center">Moon</span>
+        </button>
+        <button data-symbol="cloud" class="symbol-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="currentColor" viewBox="0 -960 960 960"><path d="M260-160q-91 0-155.5-63T40-377q0-78 47-139t123-78q25-92 100-149t170-57q117 0 198.5 81.5T760-520q69 8 114.5 59.5T920-340q0 75-52.5 127.5T740-160H260Z"/></svg>
+          <span class="text-[9px] text-gray-600 leading-tight text-center">Cloud</span>
+        </button>
+        <button data-symbol="ac_unit" class="symbol-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="currentColor" viewBox="0 -960 960 960"><path d="M440-80v-166L310-118l-56-56 186-186v-80h-80L174-254l-56-56 128-130H80v-80h166L118-650l56-56 186 186h80v-80L254-786l56-56 130 128v-166h80v166l130-128 56 56-186 186v80h80l186-186 56 56-128 130h166v80H714l128 130-56 56-186-186h-80v80l186 186-56 56-130-128v166h-80Z"/></svg>
+          <span class="text-[9px] text-gray-600 leading-tight text-center">Snowflake</span>
+        </button>
+        <button data-symbol="local_fire_department" class="symbol-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="currentColor" viewBox="0 -960 960 960"><path d="M160-400q0-105 50-187t110-138q60-56 110-85.5l50-29.5v132q0 37 25 58.5t56 21.5q17 0 32.5-7t28.5-23l18-22q72 42 116 116.5T800-400q0 88-43 160.5T644-125q17-24 26.5-52.5T680-238q0-40-15-75.5T622-377L480-516 339-377q-29 29-44 64t-15 75q0 32 9.5 60.5T316-125q-70-42-113-114.5T160-400Zm320-4 85 83q17 17 26 38t9 45q0 49-35 83.5T480-120q-50 0-85-34.5T360-238q0-23 9-44.5t26-38.5l85-83Z"/></svg>
+          <span class="text-[9px] text-gray-600 leading-tight text-center">Flame</span>
+        </button>
+        <button data-symbol="forest" class="symbol-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="currentColor" viewBox="0 -960 960 960"><path d="M520-80v-120h160v120H520Zm-240 0v-160H0l154-240H80l280-400 280 400h-74l155 240H440v160H280Zm490-160L640-440h77L505-743l95-137 280 400h-74l154 240H770Z"/></svg>
+          <span class="text-[9px] text-gray-600 leading-tight text-center">Tree</span>
+        </button>
+        <button data-symbol="pets" class="symbol-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="currentColor" viewBox="0 -960 960 960"><path d="M180-475q-42 0-71-29t-29-71q0-42 29-71t71-29q42 0 71 29t29 71q0 42-29 71t-71 29Zm109-189q-29-29-29-71t29-71q29-29 71-29t71 29q29 29 29 71t-29 71q-29 29-71 29t-71-29Zm240 0q-29-29-29-71t29-71q29-29 71-29t71 29q29 29 29 71t-29 71q-29 29-71 29t-71-29Zm251 189q-42 0-71-29t-29-71q0-42 29-71t71-29q42 0 71 29t29 71q0 42-29 71t-71 29ZM266-75q-45 0-75.5-34.5T160-191q0-52 35.5-91t70.5-77q29-31 50-67.5t50-68.5q22-26 51-43t63-17q34 0 63 16t51 42q28 32 49.5 69t50.5 69q35 38 70.5 77t35.5 91q0 47-30.5 81.5T694-75q-54 0-107-9t-107-9q-54 0-107 9t-107 9Z"/></svg>
+          <span class="text-[9px] text-gray-600 leading-tight text-center">Paw</span>
+        </button>
+        <button data-symbol="anchor" class="symbol-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="currentColor" viewBox="0 -960 960 960"><path d="M355-102q-64-22-116-60t-85.5-89Q120-302 120-360v-120l160 120-62 62q29 51 92 88t130 47v-357H320v-80h120v-47q-35-13-57.5-43.5T360-760q0-50 35-85t85-35q50 0 85 35t35 85q0 39-22.5 69.5T520-647v47h120v80H520v357q67-10 130-47t92-88l-62-62 160-120v120q0 58-33.5 109T721-162q-52 38-116 60T480-80q-61 0-125-22Zm125-618q17 0 28.5-11.5T520-760q0-17-11.5-28.5T480-800q-17 0-28.5 11.5T440-760q0 17 11.5 28.5T480-720Z"/></svg>
+          <span class="text-[9px] text-gray-600 leading-tight text-center">Anchor</span>
+        </button>
+        <button data-symbol="music_note" class="symbol-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="currentColor" viewBox="0 -960 960 960"><path d="M287-167q-47-47-47-113t47-113q47-47 113-47 23 0 42.5 5.5T480-418v-422h240v160H560v400q0 66-47 113t-113 47q-66 0-113-47Z"/></svg>
+          <span class="text-[9px] text-gray-600 leading-tight text-center">Music Note</span>
+        </button>
+        <button data-symbol="photo_camera" class="symbol-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="currentColor" viewBox="0 -960 960 960"><path d="M480-260q75 0 127.5-52.5T660-440q0-75-52.5-127.5T480-620q-75 0-127.5 52.5T300-440q0 75 52.5 127.5T480-260Zm0-80q-42 0-71-29t-29-71q0-42 29-71t71-29q42 0 71 29t29 71q0 42-29 71t-71 29ZM160-120q-33 0-56.5-23.5T80-200v-480q0-33 23.5-56.5T160-760h126l74-80h240l74 80h126q33 0 56.5 23.5T880-680v480q0 33-23.5 56.5T800-120H160Z"/></svg>
+          <span class="text-[9px] text-gray-600 leading-tight text-center">Camera</span>
+        </button>
+        <button data-symbol="bolt" class="symbol-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="currentColor" viewBox="0 -960 960 960"><path d="m320-80 40-280H160l360-520h80l-40 320h240L400-80h-80Z"/></svg>
+          <span class="text-[9px] text-gray-600 leading-tight text-center">Lightning</span>
+        </button>
+        <button data-symbol="lock" class="symbol-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="currentColor" viewBox="0 -960 960 960"><path d="M240-80q-33 0-56.5-23.5T160-160v-400q0-33 23.5-56.5T240-640h40v-80q0-83 58.5-141.5T480-920q83 0 141.5 58.5T680-720v80h40q33 0 56.5 23.5T800-560v400q0 33-23.5 56.5T720-80H240Zm296.5-223.5Q560-327 560-360t-23.5-56.5Q513-440 480-440t-56.5 23.5Q400-393 400-360t23.5 56.5Q447-280 480-280t56.5-23.5ZM360-640h240v-80q0-50-35-85t-85-35q-50 0-85 35t-35 85v80Z"/></svg>
+          <span class="text-[9px] text-gray-600 leading-tight text-center">Lock</span>
+        </button>
+        <button data-symbol="key" class="symbol-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="currentColor" viewBox="0 -960 960 960"><path d="M365-395q35-35 35-85t-35-85q-35-35-85-35t-85 35q-35 35-35 85t35 85q35 35 85 35t85-35Zm-85 155q-100 0-170-70T40-480q0-100 70-170t170-70q81 0 141.5 46T506-560h335l79 79-140 160-100-79-80 80-80-80h-14q-25 72-87 116t-139 44Z"/></svg>
+          <span class="text-[9px] text-gray-600 leading-tight text-center">Key</span>
+        </button>
+        <button data-symbol="skull" class="symbol-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="currentColor" viewBox="0 -960 960 960"><path d="M420-330h120l-60-120-60 120Zm-80-110q33 0 56.5-23.5T420-520q0-33-23.5-56.5T340-600q-33 0-56.5 23.5T260-520q0 33 23.5 56.5T340-440Zm280 0q33 0 56.5-23.5T700-520q0-33-23.5-56.5T620-600q-33 0-56.5 23.5T540-520q0 33 23.5 56.5T620-440ZM240-80v-170q-39-17-68.5-45.5t-50-64.5q-20.5-36-31-77T80-520q0-158 112-259t288-101q176 0 288 101t112 259q0 42-10.5 83t-31 77q-20.5 36-50 64.5T720-250v170H600v-80h-80v80h-80v-80h-80v80H240Z"/></svg>
+          <span class="text-[9px] text-gray-600 leading-tight text-center">Skull</span>
+        </button>
+        <button data-symbol="thumb_up" class="symbol-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-6 h-6 text-gray-700" fill="currentColor" viewBox="0 -960 960 960"><path d="M720-120H320v-520l280-280 50 50q7 7 11.5 19t4.5 23v14l-44 174h218q32 0 56 24t24 56v80q0 7-1.5 15t-4.5 15L794-168q-9 20-30 34t-44 14ZM240-640v520H80v-520h160Z"/></svg>
+          <span class="text-[9px] text-gray-600 leading-tight text-center">Thumbs Up</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ornament Picker Modal (shared by desktop and mobile "Ornaments" button) -->
+  <div id="ornament-picker-modal" class="hidden fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-[340px] max-w-full overflow-hidden">
+      <div class="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+        <h3 class="text-sm font-semibold text-gray-900">Add Corner Ornament</h3>
+        <button id="ornament-picker-close" class="text-gray-400 hover:text-gray-600 transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <p class="px-5 pt-3 text-xs text-gray-500">Placed in the top-left - rotate the element 90&deg;/180&deg;/270&deg; to mirror it into any other corner.</p>
+      <div class="p-4 grid grid-cols-5 gap-1.5">
+        <button data-ornament="bracket" class="ornament-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-8 h-8 text-gray-700" viewBox="0 0 100 100"><path d="M10 40 L10 10 L40 10" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><path d="M22 32 L22 22 L32 22" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+          <span class="text-[9px] text-gray-600 leading-tight text-center">Bracket</span>
+        </button>
+        <button data-ornament="dots" class="ornament-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-8 h-8 text-gray-700" viewBox="0 0 100 100"><circle cx="10" cy="90" r="4" fill="currentColor"/><circle cx="10" cy="70" r="4" fill="currentColor"/><circle cx="10" cy="50" r="4" fill="currentColor"/><circle cx="10" cy="30" r="4" fill="currentColor"/><circle cx="10" cy="10" r="4" fill="currentColor"/><circle cx="30" cy="10" r="4" fill="currentColor"/><circle cx="50" cy="10" r="4" fill="currentColor"/><circle cx="70" cy="10" r="4" fill="currentColor"/><circle cx="90" cy="10" r="4" fill="currentColor"/></svg>
+          <span class="text-[9px] text-gray-600 leading-tight text-center">Dot Border</span>
+        </button>
+        <button data-ornament="diamonds" class="ornament-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-8 h-8 text-gray-700" viewBox="0 0 100 100"><path d="M10 2 L18 10 L10 18 L2 10 Z" fill="currentColor"/><path d="M34 2 L42 10 L34 18 L26 10 Z" fill="currentColor"/><path d="M58 2 L66 10 L58 18 L50 10 Z" fill="currentColor"/><path d="M10 26 L18 34 L10 42 L2 34 Z" fill="currentColor"/><path d="M10 50 L18 58 L10 66 L2 58 Z" fill="currentColor"/></svg>
+          <span class="text-[9px] text-gray-600 leading-tight text-center">Diamond Border</span>
+        </button>
+        <button data-ornament="vine" class="ornament-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-8 h-8 text-gray-700" viewBox="0 0 100 100"><path d="M6 94 C6 60 10 20 48 10 C68 5 82 16 80 30 C78 44 60 46 55 34 C51 24 60 17 70 20" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><path d="M26 58 C18 52 17 40 26 34 C35 28 45 35 42 46 C40 54 32 58 26 58Z" fill="currentColor"/></svg>
+          <span class="text-[9px] text-gray-600 leading-tight text-center">Vine</span>
+        </button>
+        <button data-ornament="laurel" class="ornament-picker-option flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200">
+          <svg class="w-8 h-8 text-gray-700" viewBox="0 0 100 100"><path d="M14 86 Q26 76 20 60 Q36 66 30 82 Q24 92 14 86Z" fill="currentColor"/><path d="M36 64 Q48 54 42 38 Q58 44 52 60 Q46 70 36 64Z" fill="currentColor"/><path d="M58 42 Q70 32 64 16 Q80 22 74 38 Q68 48 58 42Z" fill="currentColor"/></svg>
+          <span class="text-[9px] text-gray-600 leading-tight text-center">Laurel Sprig</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Layers Modal (mobile - desktop uses the #elements-dropdown in the toolbar) -->
   <div id="layers-modal" class="hidden fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
     <div class="bg-white rounded-2xl shadow-2xl w-[380px] max-w-full max-h-[80vh] overflow-hidden flex flex-col">
@@ -2131,6 +2311,18 @@
             </svg>
             Split into Rows/Columns
           </button>
+          <button id="mobile-symbol-btn" class="w-full px-3 py-2.5 text-left text-sm hover:bg-gray-100 active:bg-gray-200 rounded-lg flex items-center gap-3">
+            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.975-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.196-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.783-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
+            </svg>
+            Symbols
+          </button>
+          <button id="mobile-ornament-btn" class="w-full px-3 py-2.5 text-left text-sm hover:bg-gray-100 active:bg-gray-200 rounded-lg flex items-center gap-3">
+            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13V5a1 1 0 011-1h8m-9 9h9m0 0a4 4 0 004-4V5"/>
+            </svg>
+            Ornaments
+          </button>
 
           <hr class="my-3 border-gray-200">
 
@@ -2257,7 +2449,7 @@
     pdfjsModule.GlobalWorkerOptions.workerSrc = 'vendor/js/pdf.worker.min.mjs';
     window.pdfjsLib = pdfjsModule;
   </script>
-  <script type="module" src="app.js?v=151"></script>
+  <script type="module" src="app.js?v=153"></script>
   <script>
     // Show body once styles are ready
     requestAnimationFrame(() => {

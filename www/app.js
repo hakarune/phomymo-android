@@ -30,6 +30,8 @@ import {
   sendToBack,
   moveUp,
   moveDown,
+  buildQRData,
+  parseVCF,
   getElementAtPoint,
   constrainSize,
   groupElements,
@@ -95,7 +97,9 @@ import {
   D_SERIES_ROUND_LABELS,
   TAPE_LABEL_SIZES,
   PM241_LABEL_SIZES,
-} from './constants.js?v=105';
+  SYMBOL_LIBRARY,
+  ORNAMENT_LIBRARY,
+} from './constants.js?v=107';
 import {
   bindCheckbox,
   bindToggleButton,
@@ -2401,6 +2405,7 @@ function updatePropertiesPanel() {
     case 'qr':
       $('#props-qr').classList.remove('hidden');
       $('#prop-qr-data').value = element.qrData || '';
+      renderDesktopQRTypeUI(element);
       break;
 
     case 'shape':
@@ -4519,6 +4524,186 @@ function addBarcodeElement() {
 }
 
 /**
+ * Field definitions per QR type, shared by both the desktop properties
+ * panel and the mobile properties panel so the two don't drift apart.
+ * buildQRData() (elements.js) turns whatever the user enters here into
+ * the final QR payload string.
+ */
+const QR_TYPE_FIELD_SPECS = {
+  text: [],
+  url: [
+    { name: 'url', label: 'URL', placeholder: 'example.com' },
+  ],
+  email: [
+    { name: 'to', label: 'To', placeholder: 'name@example.com' },
+    { name: 'subject', label: 'Subject' },
+    { name: 'body', label: 'Message', type: 'textarea' },
+  ],
+  phone: [
+    { name: 'phone', label: 'Phone number', placeholder: '+1 555 123 4567' },
+  ],
+  sms: [
+    { name: 'phone', label: 'Phone number', placeholder: '+1 555 123 4567' },
+    { name: 'message', label: 'Message', type: 'textarea' },
+  ],
+  wifi: [
+    { name: 'ssid', label: 'Network name (SSID)' },
+    { name: 'security', label: 'Security', type: 'select', options: [['WPA', 'WPA/WPA2'], ['WEP', 'WEP'], ['nopass', 'None (open)']] },
+    { name: 'password', label: 'Password' },
+    { name: 'hidden', label: 'Hidden network', type: 'checkbox' },
+  ],
+  vcard: [
+    { name: 'name', label: 'Full name' },
+    { name: 'phone', label: 'Phone' },
+    { name: 'email', label: 'Email' },
+    { name: 'org', label: 'Organization' },
+    { name: 'url', label: 'Website' },
+  ],
+  mecard: [
+    { name: 'name', label: 'Full name' },
+    { name: 'phone', label: 'Phone' },
+    { name: 'email', label: 'Email' },
+  ],
+  location: [
+    { name: 'lat', label: 'Latitude', placeholder: '40.7128' },
+    { name: 'lng', label: 'Longitude', placeholder: '-74.0060' },
+  ],
+};
+
+/**
+ * Build the inner HTML for a QR type's structured fields. Works for both
+ * the desktop panel (static container, innerHTML replaced) and the mobile
+ * panel (embedded directly in its template string) - same markup either
+ * way, just a different `idPrefix` so desktop/mobile field IDs don't clash
+ * when both happen to be in the DOM at once.
+ */
+function renderQRFieldsHTML(qrType, qrFields, idPrefix) {
+  const specs = QR_TYPE_FIELD_SPECS[qrType] || [];
+  if (specs.length === 0) return '';
+
+  const rows = specs.map((spec) => {
+    const value = qrFields[spec.name] ?? '';
+    const id = `${idPrefix}-qrfield-${spec.name}`;
+    if (spec.type === 'select') {
+      const opts = spec.options.map(([v, label]) =>
+        `<option value="${escapeHtml(v)}" ${value === v ? 'selected' : ''}>${escapeHtml(label)}</option>`
+      ).join('');
+      return `<div><label class="text-[10px] text-gray-400 uppercase tracking-wide">${escapeHtml(spec.label)}</label>
+        <select id="${id}" data-qr-field="${spec.name}" class="qr-field-input prop-input w-full px-1.5 py-1 text-xs border border-gray-200 rounded">${opts}</select></div>`;
+    }
+    if (spec.type === 'checkbox') {
+      return `<label class="flex items-center gap-2 text-xs text-gray-600">
+        <input type="checkbox" id="${id}" data-qr-field="${spec.name}" class="qr-field-input" ${value ? 'checked' : ''}>
+        ${escapeHtml(spec.label)}</label>`;
+    }
+    if (spec.type === 'textarea') {
+      return `<div><label class="text-[10px] text-gray-400 uppercase tracking-wide">${escapeHtml(spec.label)}</label>
+        <textarea id="${id}" data-qr-field="${spec.name}" rows="2" class="qr-field-input prop-input w-full px-1.5 py-1 text-xs border border-gray-200 rounded">${escapeHtml(value)}</textarea></div>`;
+    }
+    return `<div><label class="text-[10px] text-gray-400 uppercase tracking-wide">${escapeHtml(spec.label)}</label>
+      <input type="text" id="${id}" data-qr-field="${spec.name}" class="qr-field-input prop-input w-full px-1.5 py-1 text-xs border border-gray-200 rounded" placeholder="${escapeHtml(spec.placeholder || '')}" value="${escapeHtml(value)}"></div>`;
+  }).join('');
+
+  const vcfImport = qrType === 'vcard'
+    ? `<button type="button" id="${idPrefix}-qr-vcf-import" class="w-full text-xs text-purple-600 hover:text-purple-800 font-medium border border-dashed border-purple-200 rounded py-1.5">Import from .vcf file...</button>`
+    : '';
+
+  return rows + vcfImport;
+}
+
+/**
+ * Recompute an element's qrData from its qrType/qrFields and write it
+ * back (and refresh the visible Data field so the user can see the final
+ * payload, e.g. before using the {{Field}} template inserter on top of it).
+ */
+function recomputeQRData(element) {
+  const qrData = buildQRData(element.qrType, element.qrFields);
+  modifyElement(element.id, { qrData });
+  const dataInput = $('#prop-qr-data');
+  if (dataInput && state.selectedIds[0] === element.id) dataInput.value = qrData;
+  const mobileVal = $('#mobile-prop-value');
+  if (mobileVal && state.selectedIds[0] === element.id) mobileVal.value = qrData;
+}
+
+/**
+ * Wire up the qr-field-input elements inside a freshly-rendered fields
+ * container (desktop or mobile) to update the element's qrFields and
+ * recompute qrData live, with one saveHistory() per edit session (first
+ * change after a field gains focus) rather than per keystroke.
+ */
+function bindQRFieldInputs(container, elementId) {
+  let historySaved = false;
+  container.querySelectorAll('.qr-field-input').forEach((input) => {
+    input.addEventListener('focus', () => { historySaved = false; });
+    const handler = () => {
+      const element = state.elements.find(e => e.id === elementId);
+      if (!element) return;
+      if (!historySaved) { saveHistory(); historySaved = true; }
+      const name = input.dataset.qrField;
+      const value = input.type === 'checkbox' ? input.checked : input.value;
+      element.qrFields = { ...element.qrFields, [name]: value };
+      recomputeQRData(element);
+    };
+    input.addEventListener('input', handler);
+    if (input.tagName === 'SELECT' || input.type === 'checkbox') {
+      input.addEventListener('change', handler);
+    }
+  });
+
+  const vcfBtn = container.querySelector('[id$="-qr-vcf-import"]');
+  if (vcfBtn) {
+    vcfBtn.addEventListener('click', () => {
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = '.vcf,text/vcard';
+      fileInput.addEventListener('change', () => {
+        const file = fileInput.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          const element = state.elements.find(e => e.id === elementId);
+          if (!element) return;
+          saveHistory();
+          const parsed = parseVCF(reader.result);
+          element.qrFields = { ...element.qrFields, ...parsed };
+          recomputeQRData(element);
+          // Re-render just this fields container (not the whole panel) so
+          // the imported values show up in the inputs, regardless of
+          // whether this was the desktop or mobile container.
+          const idPrefix = container.id.startsWith('mobile') ? 'mobile' : 'desktop';
+          container.innerHTML = renderQRFieldsHTML(element.qrType, element.qrFields, idPrefix);
+          bindQRFieldInputs(container, elementId);
+          setStatus('Imported contact from .vcf');
+        };
+        reader.readAsText(file);
+      });
+      fileInput.click();
+    });
+  }
+}
+
+/**
+ * Populate the desktop QR panel's type dropdown + structured fields for
+ * the given element (called whenever the properties panel shows a QR
+ * element, and after the type dropdown changes).
+ */
+function renderDesktopQRTypeUI(element) {
+  const typeSelect = $('#prop-qr-type');
+  const fieldsContainer = $('#qr-type-fields');
+  const dataWrap = $('#qr-data-field-wrap');
+  const computedNote = $('#qr-data-computed-note');
+  if (!typeSelect || !fieldsContainer) return;
+
+  typeSelect.value = element.qrType || 'text';
+  fieldsContainer.innerHTML = renderQRFieldsHTML(element.qrType, element.qrFields || {}, 'desktop');
+  bindQRFieldInputs(fieldsContainer, element.id);
+
+  const isStructured = (element.qrType || 'text') !== 'text';
+  computedNote?.classList.toggle('hidden', !isStructured);
+  dataWrap?.classList.toggle('opacity-60', isStructured);
+}
+
+/**
  * Add a new QR element
  */
 function addQRElement() {
@@ -4660,6 +4845,86 @@ function openShapePicker() {
 
 function closeShapePicker() {
   $('#shape-picker-modal')?.classList.add('hidden');
+}
+
+/**
+ * Open/close the shared symbol picker modal (desktop "Symbols" button and
+ * mobile "Symbols" button both use this one modal).
+ */
+function openSymbolPicker() {
+  $('#symbol-picker-modal')?.classList.remove('hidden');
+}
+
+function closeSymbolPicker() {
+  $('#symbol-picker-modal')?.classList.add('hidden');
+}
+
+/**
+ * Add a symbol (Material Symbols glyph, see SYMBOL_LIBRARY in constants.js)
+ * to the canvas as a solid-black Image element. Works entirely through the
+ * existing image pipeline - no renderer changes needed since any data URI
+ * (including SVG) is already supported there.
+ */
+function addSymbolElement(symbolId) {
+  const symbol = SYMBOL_LIBRARY.find(s => s.id === symbolId);
+  if (!symbol) return;
+  saveHistory();
+  const dims = state.renderer.getSingleLabelDimensions();
+  const size = 60;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path fill="black" d="${symbol.path}"/></svg>`;
+  const dataUri = `data:image/svg+xml,${encodeURIComponent(svg)}`;
+  const element = createImageElement(dataUri, {
+    x: dims.width / 2 - size / 2,
+    y: dims.height / 2 - size / 2,
+    width: size,
+    height: size,
+    naturalWidth: size,
+    naturalHeight: size,
+    zone: state.activeZone,
+  });
+  state.elements.push(element);
+  autoCloneIfEnabled();
+  selectElement(element.id);
+  setStatus(`${symbol.label} symbol added`);
+}
+
+/**
+ * Open/close the shared corner-ornament picker modal (desktop "Ornaments"
+ * button and mobile menu item both use this one modal).
+ */
+function openOrnamentPicker() {
+  $('#ornament-picker-modal')?.classList.remove('hidden');
+}
+
+function closeOrnamentPicker() {
+  $('#ornament-picker-modal')?.classList.add('hidden');
+}
+
+/**
+ * Add a corner ornament (see ORNAMENT_LIBRARY in constants.js) to the
+ * canvas as a solid-black Image element, same pipeline as addSymbolElement.
+ */
+function addOrnamentElement(ornamentId) {
+  const ornament = ORNAMENT_LIBRARY.find(o => o.id === ornamentId);
+  if (!ornament) return;
+  saveHistory();
+  const dims = state.renderer.getSingleLabelDimensions();
+  const size = 50;
+  const svg = ornament.svg.replace(/currentColor/g, 'black');
+  const dataUri = `data:image/svg+xml,${encodeURIComponent(svg)}`;
+  const element = createImageElement(dataUri, {
+    x: dims.width / 2 - size / 2,
+    y: dims.height / 2 - size / 2,
+    width: size,
+    height: size,
+    naturalWidth: size,
+    naturalHeight: size,
+    zone: state.activeZone,
+  });
+  state.elements.push(element);
+  autoCloneIfEnabled();
+  selectElement(element.id);
+  setStatus(`${ornament.label} ornament added`);
 }
 
 /**
@@ -6469,7 +6734,21 @@ function populateMobileProps() {
       </div>
     `;
   } else if (selected.type === 'qr') {
+    const qrType = selected.qrType || 'text';
+    const qrTypeOptions = [
+      ['text', 'Text / URL (plain)'], ['url', 'Website URL'], ['email', 'Email'],
+      ['phone', 'Phone number'], ['sms', 'SMS'], ['wifi', 'Wi-Fi network'],
+      ['vcard', 'Contact (vCard)'], ['mecard', 'Contact (simple)'], ['location', 'Location'],
+    ].map(([v, label]) => `<option value="${v}" ${qrType === v ? 'selected' : ''}>${label}</option>`).join('');
+
     html += `
+      <div class="prop-group">
+        <div class="prop-label">Type</div>
+        <select id="mobile-prop-qr-type" class="prop-input">${qrTypeOptions}</select>
+      </div>
+      <div class="prop-group" id="mobile-qr-type-fields">
+        ${renderQRFieldsHTML(qrType, selected.qrFields || {}, 'mobile')}
+      </div>
       <div class="prop-group">
         <div class="flex items-center justify-between mb-1">
           <div class="prop-label mb-0">QR Content</div>
@@ -6482,6 +6761,7 @@ function populateMobileProps() {
           </div>
         </div>
         <textarea id="mobile-prop-value" class="prop-input" rows="3">${escapeHtml(selected.value || selected.qrData || '')}</textarea>
+        ${qrType !== 'text' ? '<p class="text-xs text-gray-400 mt-1">Computed from the fields above. Editing this directly switches back to plain text.</p>' : ''}
       </div>
     `;
   } else if (selected.type === 'shape') {
@@ -6730,10 +7010,31 @@ function wireUpMobilePropHandlers(element) {
     valueInput.addEventListener('input', (e) => {
       updatePropLive('value', e.target.value);
       if (element.type === 'barcode') element.barcodeData = e.target.value;
-      if (element.type === 'qr') element.qrData = e.target.value;
+      if (element.type === 'qr') {
+        element.qrData = e.target.value;
+        // Editing the raw Data field directly overrides the structured
+        // type (same rule as the desktop panel) - switch back to plain text.
+        if (element.qrType && element.qrType !== 'text') {
+          element.qrType = 'text';
+          element.qrFields = {};
+        }
+      }
       detectTemplateFields(); // Detect {{fields}} as user types
     });
     valueInput.addEventListener('blur', saveOnBlur('value'));
+  }
+
+  // QR type selector + structured fields
+  $('#mobile-prop-qr-type')?.addEventListener('change', (e) => {
+    saveHistory();
+    element.qrType = e.target.value;
+    element.qrFields = {};
+    recomputeQRData(element);
+    populateMobileProps(); // Refresh to show the new type's fields
+  });
+  const mobileQrFieldsContainer = $('#mobile-qr-type-fields');
+  if (mobileQrFieldsContainer) {
+    bindQRFieldInputs(mobileQrFieldsContainer, element.id);
   }
   $('#mobile-prop-format')?.addEventListener('change', (e) => {
     updateProp('format', e.target.value);
@@ -7626,6 +7927,40 @@ function init() {
     closeGridDialog();
   });
 
+  // Symbol picker (shared modal, desktop "Symbols" button and mobile menu item)
+  $('#symbol-btn')?.addEventListener('click', () => openSymbolPicker());
+  $('#mobile-symbol-btn')?.addEventListener('click', () => {
+    closeMobileMenu();
+    openSymbolPicker();
+  });
+  $('#symbol-picker-close')?.addEventListener('click', closeSymbolPicker);
+  $('#symbol-picker-modal')?.addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeSymbolPicker();
+  });
+  $$('.symbol-picker-option').forEach(btn => {
+    btn.addEventListener('click', () => {
+      addSymbolElement(btn.dataset.symbol);
+      closeSymbolPicker();
+    });
+  });
+
+  // Ornament picker (shared modal, desktop "Ornaments" button and mobile menu item)
+  $('#ornament-btn')?.addEventListener('click', () => openOrnamentPicker());
+  $('#mobile-ornament-btn')?.addEventListener('click', () => {
+    closeMobileMenu();
+    openOrnamentPicker();
+  });
+  $('#ornament-picker-close')?.addEventListener('click', closeOrnamentPicker);
+  $('#ornament-picker-modal')?.addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeOrnamentPicker();
+  });
+  $$('.ornament-picker-option').forEach(btn => {
+    btn.addEventListener('click', () => {
+      addOrnamentElement(btn.dataset.ornament);
+      closeOrnamentPicker();
+    });
+  });
+
   // Element actions
   $('#duplicate-btn').addEventListener('click', () => {
     const selected = getSelected();
@@ -8146,7 +8481,27 @@ function init() {
     } else {
       e.target.classList.remove('border-red-300');
     }
+    // Editing the raw Data field directly overrides whatever structured
+    // type was active - switch back to plain text so the two can't fight.
+    const element = state.elements.find(el => el.id === id);
+    if (element && element.qrType && element.qrType !== 'text') {
+      element.qrType = 'text';
+      element.qrFields = {};
+      renderDesktopQRTypeUI(element);
+    }
     modifyElement(id, { qrData: e.target.value });
+  });
+
+  $('#prop-qr-type')?.addEventListener('change', (e) => {
+    const id = state.selectedIds[0];
+    if (!id) return;
+    const element = state.elements.find(el => el.id === id);
+    if (!element) return;
+    saveHistory();
+    element.qrType = e.target.value;
+    element.qrFields = {};
+    renderDesktopQRTypeUI(element);
+    recomputeQRData(element);
   });
 
 
