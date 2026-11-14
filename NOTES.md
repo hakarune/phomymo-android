@@ -656,3 +656,31 @@ the two gradient dialog headers use the same "self-contained, never
 themed" pattern as `#zone-toolbar` without being marked the same way) -
 both fixed for consistency even though neither was an actual readability
 bug.
+
+## Dark mode follow-up fix (user-reported, 2026-11-14)
+
+User reported black (unreadable) text on roughly a dozen mobile hamburger
+menu items (Save/Load/Export x3/Undo/Redo/Layers/Grid/Symbols/Ornaments/
+Appearance/Print Settings/About) in all 4 dark themes. Root cause: those
+buttons - and, once found, a wider set including the desktop Export
+dropdown, the Connect button, and a few others - never had an explicit
+Tailwind text-color class at all. In light mode this was invisible, since
+an un-colored element just renders the browser's initial `color: black`,
+which happens to look correct against a white background - the generic
+class-override system built for dark mode can only re-map classes that
+exist on an element, so these elements were never touched and kept their
+literal black text even with a dark theme active.
+
+Rather than hunt down and patch every individual unclassed element
+(grepping turned up ~97 candidates, most of them icon-only buttons or
+inline color swatches that don't actually need this), fixed it at the
+root: `[data-theme] body.bg-gray-100 { ...; color: var(--text-primary); }`.
+Tailwind's Preflight base layer already sets `color: inherit` on form
+controls (`button`/`input`/`select`), so this one rule cascades down to
+every currently-unclassed button via normal CSS inheritance - and
+crucially, any element that DOES have its own explicit text-color class
+(`.text-gray-400`, `.text-blue-700`, etc.) is unaffected, since a rule
+that directly matches an element always wins over an inherited value
+regardless of specificity. Confirmed via Tailwind's CDN script including
+Preflight by default (no config found disabling it) - this is the actual
+mechanism, not just a check that the browser allows it.
